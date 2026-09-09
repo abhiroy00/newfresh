@@ -42,6 +42,7 @@ cloudinary==1.41.0
 # Task Queue
 celery==5.4.0
 flower==2.0.1
+packaging==24.2  # required by kombu's redis transport at import time
 
 # Utils
 python-dotenv==1.0.1

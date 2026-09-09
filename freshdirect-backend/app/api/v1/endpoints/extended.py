@@ -540,7 +540,7 @@ async def update_payment_gateway(
 
 @router.patch("/settings/tax-config")
 async def update_tax_config(
-    gst_config: dict,
+    data: dict,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(get_current_admin)
 ):
@@ -553,7 +553,7 @@ async def update_tax_config(
         settings = AppSettings()
         db.add(settings)
 
-    settings.gst_config = gst_config
+    settings.gst_config = data.get('gst_config', data)
     await db.flush()
     await db.commit()
 

@@ -704,7 +704,7 @@ async def sales_report(
     if end_date:
         try:
             end = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
-            query = query.where(Order.created_at <= end)
+            query = query.where(Order.created_at < end + timedelta(days=1))
         except Exception:
             pass
 
@@ -767,7 +767,7 @@ async def orders_report(
     if end_date:
         try:
             end = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
-            query = query.where(Order.created_at <= end)
+            query = query.where(Order.created_at < end + timedelta(days=1))
         except Exception:
             pass
 
