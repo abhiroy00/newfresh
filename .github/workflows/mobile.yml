@@ -1,0 +1,175 @@
+name: Mobile App — Build & Publish
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'freshdirect/**'
+      - '.github/workflows/mobile.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'freshdirect/**'
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 'Platform to build'
+        required: true
+        default: 'all'
+        type: choice
+        options: [all, android, ios]
+      profile:
+        description: 'Build profile'
+        required: true
+        default: 'preview'
+        type: choice
+        options: [preview, production]
+
+env:
+  NODE_VERSION: '20'
+
+permissions:
+  contents: read
+
+# ──────────────────────────────────────────────────────────────────────────────
+jobs:
+
+  # ── 1. Type-check (runs on every push/PR) ────────────────────────────────────
+  check:
+    name: Type Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: freshdirect
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: freshdirect/package-lock.json
+
+      - run: npm ci
+      - run: npx tsc --noEmit
+
+  # ── 2. Android build (EAS) — manual dispatch only ────────────────────────────
+  build-android:
+    name: Android Build (EAS)
+    runs-on: ubuntu-latest
+    needs: check
+    if: |
+      github.event_name == 'workflow_dispatch' && (
+        github.event.inputs.platform == 'android' ||
+        github.event.inputs.platform == 'all'
+      )
+    defaults:
+      run:
+        working-directory: freshdirect
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: freshdirect/package-lock.json
+
+      - run: npm ci
+
+      - name: Setup Expo & EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Build Android APK/AAB
+        run: |
+          PROFILE="${{ github.event.inputs.profile }}"
+          eas build \
+            --platform android \
+            --profile "$PROFILE" \
+            --non-interactive \
+            --no-wait
+        env:
+          EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
+
+  # ── 3. iOS build (EAS) — manual dispatch only ────────────────────────────────
+  build-ios:
+    name: iOS Build (EAS)
+    runs-on: ubuntu-latest
+    needs: check
+    if: |
+      github.event_name == 'workflow_dispatch' && (
+        github.event.inputs.platform == 'ios' ||
+        github.event.inputs.platform == 'all'
+      )
+    defaults:
+      run:
+        working-directory: freshdirect
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: freshdirect/package-lock.json
+
+      - run: npm ci
+
+      - name: Setup Expo & EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Build iOS IPA
+        run: |
+          PROFILE="${{ github.event.inputs.profile }}"
+          eas build \
+            --platform ios \
+            --profile "$PROFILE" \
+            --non-interactive \
+            --no-wait
+        env:
+          EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
+
+  # ── 4. OTA update — manual dispatch only ─────────────────────────────────────
+  ota-update:
+    name: OTA Update
+    runs-on: ubuntu-latest
+    needs: check
+    if: github.event_name == 'workflow_dispatch'
+    defaults:
+      run:
+        working-directory: freshdirect
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: freshdirect/package-lock.json
+
+      - run: npm ci
+
+      - name: Setup Expo & EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Publish OTA update
+        run: |
+          eas update \
+            --branch production \
+            --message "Deploy ${{ github.sha }}" \
+            --non-interactive
+        env:
+          EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}

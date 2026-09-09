@@ -1,0 +1,57 @@
+# Core
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+gunicorn==23.0.0
+python-multipart==0.0.12
+
+# Database
+sqlalchemy==2.0.36
+alembic==1.14.0
+asyncpg==0.30.0
+psycopg2-binary==2.9.10
+
+# Redis
+redis==5.2.1
+hiredis==3.1.0
+
+# Auth & Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+
+# Validation
+pydantic==2.10.3
+pydantic-settings==2.6.1
+pydantic[email]==2.10.3
+
+# HTTP Client
+httpx==0.28.1
+
+# SMS OTP
+twilio==9.3.7
+
+# Payments
+razorpay==1.4.2
+
+# Push Notifications
+firebase-admin==6.6.0
+
+# Image Upload
+cloudinary==1.41.0
+
+# Task Queue
+celery==5.4.0
+flower==2.0.1
+
+# Utils
+python-dotenv==1.0.1
+pillow==11.0.0
+python-slugify==8.0.4
+babel==2.16.0
+setuptools<81
+
+# Testing
+pytest==8.3.4
+pytest-asyncio==0.24.0
+httpx==0.28.1
+factory-boy==3.3.1

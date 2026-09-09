@@ -1,0 +1,75 @@
+{
+  "family": "Gmart-backend",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/Gmart-ecs-execution-role",
+  "taskRoleArn": "arn:aws:iam::ACCOUNT_ID:role/Gmart-ecs-task-role",
+  "containerDefinitions": [
+    {
+      "name": "Gmart-api",
+      "image": "ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/Gmart-backend:latest",
+      "essential": true,
+      "portMappings": [
+        { "containerPort": 8000, "protocol": "tcp" }
+      ],
+      "environment": [
+        { "name": "PORT", "value": "8000" },
+        { "name": "WORKERS", "value": "2" }
+      ],
+      "secrets": [
+        { "name": "DATABASE_URL",            "valueFrom": "/Gmart/backend/DATABASE_URL" },
+        { "name": "REDIS_URL",               "valueFrom": "/Gmart/backend/REDIS_URL" },
+        { "name": "SECRET_KEY",              "valueFrom": "/Gmart/backend/SECRET_KEY" },
+        { "name": "RAZORPAY_KEY_ID",         "valueFrom": "/Gmart/backend/RAZORPAY_KEY_ID" },
+        { "name": "RAZORPAY_KEY_SECRET",     "valueFrom": "/Gmart/backend/RAZORPAY_KEY_SECRET" },
+        { "name": "RAZORPAY_WEBHOOK_SECRET", "valueFrom": "/Gmart/backend/RAZORPAY_WEBHOOK_SECRET" },
+        { "name": "TWILIO_ACCOUNT_SID",      "valueFrom": "/Gmart/backend/TWILIO_ACCOUNT_SID" },
+        { "name": "TWILIO_AUTH_TOKEN",       "valueFrom": "/Gmart/backend/TWILIO_AUTH_TOKEN" },
+        { "name": "TWILIO_PHONE_NUMBER",     "valueFrom": "/Gmart/backend/TWILIO_PHONE_NUMBER" },
+        { "name": "FIREBASE_CREDENTIALS",    "valueFrom": "/Gmart/backend/FIREBASE_CREDENTIALS" },
+        { "name": "CLOUDINARY_URL",          "valueFrom": "/Gmart/backend/CLOUDINARY_URL" },
+        { "name": "ALLOWED_ORIGINS",         "valueFrom": "/Gmart/backend/ALLOWED_ORIGINS" },
+        { "name": "OTP_DEMO_MODE",           "valueFrom": "/Gmart/backend/OTP_DEMO_MODE" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/Gmart-backend",
+          "awslogs-region": "ap-south-1",
+          "awslogs-stream-prefix": "api",
+          "awslogs-create-group": "true"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    },
+    {
+      "name": "Gmart-celery",
+      "image": "ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/Gmart-backend:latest",
+      "essential": false,
+      "command": ["celery", "-A", "app.worker", "worker", "--loglevel=info", "--concurrency=2"],
+      "secrets": [
+        { "name": "DATABASE_URL",  "valueFrom": "/Gmart/backend/DATABASE_URL" },
+        { "name": "REDIS_URL",     "valueFrom": "/Gmart/backend/REDIS_URL" },
+        { "name": "SECRET_KEY",    "valueFrom": "/Gmart/backend/SECRET_KEY" },
+        { "name": "FIREBASE_CREDENTIALS", "valueFrom": "/Gmart/backend/FIREBASE_CREDENTIALS" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/Gmart-backend",
+          "awslogs-region": "ap-south-1",
+          "awslogs-stream-prefix": "celery",
+          "awslogs-create-group": "true"
+        }
+      }
+    }
+  ]
+}

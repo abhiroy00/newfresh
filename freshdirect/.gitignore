@@ -1,0 +1,50 @@
+# ─── Expo / React Native ───────────────────────────────────────────────────
+.expo/
+.expo-shared/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native builds
+ios/
+android/
+
+# Metro bundler
+.metro-health-check*
+
+# ─── Node ──────────────────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ─── Environment & Secrets ─────────────────────────────────────────────────
+.env
+.env.local
+.env.development
+.env.production
+.env*.local
+
+# ─── TypeScript ────────────────────────────────────────────────────────────
+*.tsbuildinfo
+
+# ─── OS & Editor ───────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ─── Testing ───────────────────────────────────────────────────────────────
+coverage/
+jest-results/
+
+# ─── Misc ──────────────────────────────────────────────────────────────────
+*.log
+*.orig
+*.bak

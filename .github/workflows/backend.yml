@@ -1,0 +1,107 @@
+name: Backend CI/CD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'freshdirect-backend/**'
+      - '.github/workflows/backend.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'freshdirect-backend/**'
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: freshdirect-backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: freshdirect-backend/requirements.txt
+      - run: pip install ruff
+      - run: ruff check . --select E,W,F --ignore E501,F821
+
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    needs: lint
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Push code to EC2 via rsync
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          echo "$EC2_SSH_KEY" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+          mkdir -p ~/.ssh
+          ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts 2>/dev/null
+
+          # Ensure target dir exists
+          ssh -i /tmp/deploy_key ec2-user@$EC2_HOST "mkdir -p ~/app/freshdirect-backend"
+
+          # Sync code — skip .env so we never overwrite production secrets
+          rsync -az --delete \
+            --exclude='.env' \
+            --exclude='__pycache__' \
+            --exclude='*.pyc' \
+            --exclude='.pytest_cache' \
+            -e "ssh -i /tmp/deploy_key" \
+            freshdirect-backend/ \
+            ec2-user@$EC2_HOST:~/app/freshdirect-backend/
+
+          rm /tmp/deploy_key
+
+      - name: Build, restart and migrate
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          timeout: 300s
+          script: |
+            set -e
+            export PATH=$PATH:/usr/bin:/usr/local/bin
+
+            # Install Docker if not present (first deploy after EC2 launch)
+            if ! command -v docker &>/dev/null; then
+              sudo dnf install -y docker
+              sudo systemctl enable --now docker
+              sudo usermod -aG docker ec2-user
+            fi
+            sudo systemctl is-active docker || sudo systemctl start docker
+
+            # Install plugins independently — each check is separate so a partial
+            # install from a previous failed run doesn't silently skip the other
+            sudo mkdir -p /usr/local/lib/docker/cli-plugins
+
+            if [ ! -f /usr/local/lib/docker/cli-plugins/docker-compose ]; then
+              sudo curl -fsSL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64" \
+                -o /usr/local/lib/docker/cli-plugins/docker-compose
+              sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+            fi
+
+            if [ ! -f /usr/local/lib/docker/cli-plugins/docker-buildx ]; then
+              BXVER=$(curl -fsSL https://api.github.com/repos/docker/buildx/releases/latest | grep '"tag_name"' | head -1 | cut -d'"' -f4)
+              sudo curl -fsSL "https://github.com/docker/buildx/releases/download/${BXVER}/buildx-${BXVER}.linux-amd64" \
+                -o /usr/local/lib/docker/cli-plugins/docker-buildx
+              sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
+            fi
+
+            cd ~/app/freshdirect-backend
+            sudo docker compose -f docker-compose.prod.yml build
+            sudo docker compose -f docker-compose.prod.yml up -d
+            sleep 15
+            sudo docker compose -f docker-compose.prod.yml exec -T api alembic upgrade head
+            sudo docker image prune -f
+            echo "Deploy complete"

@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh auth *)",
+      "PowerShell(gh auth status 2>&1; Write-Output \"---\"; \\(Get-Command gh -ErrorAction SilentlyContinue\\).Source)",
+      "PowerShell(winget list --id GitHub.cli 2>&1 | Select-String -Pattern \"GitHub CLI\" -Quiet; Write-Output \"winget-check-done\"; Get-ChildItem \"$env:ProgramFiles\\\\GitHub CLI\" -ErrorAction SilentlyContinue; Get-ChildItem \"$env:LOCALAPPDATA\\\\GitHubCLI\" -ErrorAction SilentlyContinue)",
+      "Bash(docker --version)",
+      "Bash(docker compose *)",
+      "Bash(docker info *)",
+      "Bash(cp .env.example .env)",
+      "Bash(python3 -c \"import secrets; print\\(secrets.token_hex\\(32\\)\\)\")",
+      "Bash(openssl rand *)",
+      "Bash(npm ci *)",
+      "Bash(npx tsc *)",
+      "Bash(curl -s -X POST http://localhost:8000/api/v1/auth/login -H \"Content-Type: application/json\" -d '{\"email\":\"admin@example.com\",\"password\":\"ChangeMe123!\"}')"
+    ]
+  }
+}

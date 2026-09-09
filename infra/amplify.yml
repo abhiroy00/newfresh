@@ -1,0 +1,22 @@
+# Place this file at: Gmart/amplify.yml
+# Amplify reads this for build settings when connected via GitHub
+version: 1
+applications:
+  - frontend:
+      phases:
+        preBuild:
+          commands:
+            - npm ci
+        build:
+          commands:
+            # Inject EXPO_PUBLIC_API_URL from Amplify env variable
+            - echo "EXPO_PUBLIC_API_URL=$EXPO_PUBLIC_API_URL" > .env
+            - npx expo export --platform web
+      artifacts:
+        baseDirectory: dist
+        files:
+          - '**/*'
+      cache:
+        paths:
+          - node_modules/**/*
+    appRoot: Gmart
