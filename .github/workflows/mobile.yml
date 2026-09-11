@@ -168,10 +168,14 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
           packager: npm
 
-      - name: Publish OTA update
+      - name: Publish OTA update (preview + production channels)
         run: |
           eas update \
-            --branch production \
+            --channel preview \
+            --message "Deploy ${{ github.sha }}" \
+            --non-interactive
+          eas update \
+            --channel production \
             --message "Deploy ${{ github.sha }}" \
             --non-interactive
         env:

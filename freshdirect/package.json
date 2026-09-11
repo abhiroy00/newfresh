@@ -13,35 +13,28 @@
     "ios": "expo start --ios",
     "ios:device": "expo run:ios",
     "tunnel": "expo start --tunnel",
-
     "_comment2": "========== CACHE & RESET ==========",
     "clean": "expo start -c",
     "cache:clear": "npx expo start --clear",
     "reset": "npx expo start --clear && rm -rf node_modules/.cache",
     "reset:hard": "rm -rf node_modules package-lock.json && npm install && npx expo start -c",
-
     "_comment3": "========== BUILD (EAS) ==========",
     "build:preview": "eas build --platform android --profile preview",
     "build:preview:ios": "eas build --platform ios --profile preview",
     "build:prod": "eas build --platform android --profile production",
     "build:prod:ios": "eas build --platform ios --profile production",
     "build:local": "eas build --platform android --profile preview --local",
-
     "_comment4": "========== SUBMIT (PUBLISH) ==========",
     "submit:android": "eas submit --platform android",
     "submit:ios": "eas submit --platform ios",
-
     "_comment5": "========== UPDATE (OTA) ==========",
     "update": "eas update --branch production --message",
     "update:staging": "eas update --branch staging",
-
-
     "_comment6": "========== DOCTOR & DIAGNOSTICS ==========",
     "doctor": "npx expo-doctor",
     "doctor:fix": "npx expo-doctor --fix-dependencies",
     "lint": "npx tsc --noEmit",
     "install:pods": "cd ios && pod install",
-
     "_comment7": "========== AUTHENTICATION ==========",
     "login": "eas login",
     "logout": "eas logout",
@@ -63,6 +56,7 @@
     "expo-router": "~6.0.24",
     "expo-secure-store": "~15.0.8",
     "expo-status-bar": "~3.0.9",
+    "expo-updates": "~29.0.20",
     "fuse.js": "^7.0.0",
     "lucide-react-native": "^0.460.0",
     "moti": "^0.29.0",
