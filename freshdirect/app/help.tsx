@@ -97,7 +97,7 @@ export default function HelpScreen() {
               key={item.label}
               style={styles.quickCard}
               onPress={() => {
-                if ((item as any).action === 'call') Linking.openURL('tel:18001234567');
+                if ((item as any).action === 'call') Linking.openURL('tel:9955476677');
                 else if (item.route) router.navigate(item.route as any);
               }}
             >
@@ -150,12 +150,12 @@ export default function HelpScreen() {
             <Text style={styles.contactTitle}>Live Chat</Text>
             <Text style={styles.contactSub}>Avg. reply in 2 min</Text>
           </Pressable>
-          <Pressable style={styles.contactCard} onPress={() => Linking.openURL('tel:18001234567')}>
+          <Pressable style={styles.contactCard} onPress={() => Linking.openURL('tel:9955476677')}>
             <View style={[styles.contactIcon, { backgroundColor: Colors.secondary + '1A' }]}>
               <Phone size={20} color={Colors.secondary} />
             </View>
             <Text style={styles.contactTitle}>Call Us</Text>
-            <Text style={styles.contactSub}>1800-123-4567</Text>
+            <Text style={styles.contactSub}>9955476677</Text>
           </Pressable>
         </View>
 
