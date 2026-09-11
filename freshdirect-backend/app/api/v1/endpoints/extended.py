@@ -38,13 +38,13 @@ async def update_product_extended(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    if 'origin' in data and data['origin']:
+    if 'origin' in data:
         product.origin = data['origin']
-    if 'health_benefits' in data and data['health_benefits']:
+    if 'health_benefits' in data:
         product.health_benefits = data['health_benefits']
-    if 'minerals' in data and data['minerals']:
+    if 'minerals' in data:
         product.minerals = data['minerals']
-    if 'vitamins' in data and data['vitamins']:
+    if 'vitamins' in data:
         product.vitamins = data['vitamins']
     if 'low_stock_threshold' in data and data['low_stock_threshold'] is not None:
         product.low_stock_threshold = data['low_stock_threshold']
