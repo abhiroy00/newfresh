@@ -26,7 +26,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#effeeb"
       },
-      "package": "com.chuchu.Gmart",
+      "package": "com.gmartfresh.app",
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "CAMERA",
