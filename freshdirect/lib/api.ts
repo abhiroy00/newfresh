@@ -153,6 +153,16 @@ export const paymentsApi = {
   }) => api.post('/payments/verify', data),
 };
 
+// Support
+export const supportApi = {
+  listTickets: () => api.get('/support/tickets'),
+  getTicket: (id: string) => api.get(`/support/tickets/${id}`),
+  startOrContinue: (message: string, subject: string = 'Support Query') =>
+    api.post('/support/tickets', { subject, message }),
+  sendMessage: (ticketId: string, message: string) =>
+    api.post(`/support/tickets/${ticketId}/messages`, { message }),
+};
+
 // Notifications
 export const notificationsApi = {
   registerToken: (token: string, device_type: string = 'android') =>

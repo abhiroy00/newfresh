@@ -40,7 +40,7 @@ const FAQ_ITEMS = [
 
 const QUICK_HELP = [
   { icon: Package, label: 'Track Order', color: Colors.primary, route: '/track' },
-  { icon: CreditCard, label: 'Payment Issues', color: Colors.secondary, route: null },
+  { icon: CreditCard, label: 'Payment Issues', color: Colors.secondary, route: null, action: 'call' as const },
   { icon: Truck, label: 'Delivery Issue', color: Colors.accentOrange, route: '/track' },
   { icon: RefreshCw, label: 'Returns', color: Colors.accentMint, route: '/tabs/orders' },
 ];
@@ -96,7 +96,10 @@ export default function HelpScreen() {
             <Pressable
               key={item.label}
               style={styles.quickCard}
-              onPress={() => item.route && router.navigate(item.route as any)}
+              onPress={() => {
+                if ((item as any).action === 'call') Linking.openURL('tel:18001234567');
+                else if (item.route) router.navigate(item.route as any);
+              }}
             >
               <View style={[styles.quickIcon, { backgroundColor: item.color + '1A' }]}>
                 <item.icon size={20} color={item.color} />
@@ -140,7 +143,7 @@ export default function HelpScreen() {
         {/* Contact */}
         <Text style={styles.sectionLabel}>Contact Us</Text>
         <View style={styles.contactRow}>
-          <Pressable style={styles.contactCard}>
+          <Pressable style={styles.contactCard} onPress={() => router.navigate('/support' as any)}>
             <View style={[styles.contactIcon, { backgroundColor: Colors.primary + '1A' }]}>
               <MessageSquare size={20} color={Colors.primary} />
             </View>

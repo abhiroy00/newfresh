@@ -4,6 +4,7 @@ from app.models.product import Category, Product, ProductImage, Carousel
 from app.models.cart import Cart, CartItem
 from app.models.order import Order, OrderItem, OrderStatus, PaymentStatus
 from app.models.notification import FCMToken
+from app.models.support import SupportTicket, SupportMessage, TicketStatus, SenderType
 
 __all__ = [
     "Base",
@@ -12,4 +13,5 @@ __all__ = [
     "Cart", "CartItem",
     "Order", "OrderItem", "OrderStatus", "PaymentStatus",
     "FCMToken",
+    "SupportTicket", "SupportMessage", "TicketStatus", "SenderType",
 ]

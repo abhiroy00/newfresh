@@ -22,6 +22,8 @@ import Settings from './pages/Settings'
 import Riders from './pages/Riders'
 import RiderOrders from './pages/RiderOrders'
 import RiderDashboard from './pages/RiderDashboard'
+import Support from './pages/Support'
+import SupportTicketDetail from './pages/SupportTicketDetail'
 
 import Forbidden from './pages/Forbidden'
 
@@ -170,6 +172,8 @@ export default function App() {
             <Route path="orders/:id" element={<OrderDetail />} />
             <Route path="users" element={<Users />} />
             <Route path="riders" element={<Riders />} />
+            <Route path="support" element={<Support />} />
+            <Route path="support/:id" element={<SupportTicketDetail />} />
             <Route path="reports/sales" element={<SalesReport />} />
             <Route path="reports/orders" element={<OrdersReport />} />
             <Route path="settings" element={<Settings />} />

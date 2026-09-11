@@ -13,6 +13,7 @@ from app.api.v1.deps import get_current_admin
 from app.models.user import User
 from app.models.product import Product, Carousel
 from app.models.order import Order, OrderStatus
+from app.models.support import SupportTicket, SupportMessage, TicketStatus, SenderType
 
 router = APIRouter(prefix="/api/v1")
 
@@ -871,3 +872,112 @@ async def deactivate_rider(
     rider.is_active = False
     await db.flush()
     return {"success": True, "message": "Rider deactivated"}
+
+
+# ── Support Tickets ──────────────────────────────────────────────────────────
+
+def _admin_serialize_ticket(t: SupportTicket, include_messages: bool = False):
+    data = {
+        "id": t.id,
+        "subject": t.subject,
+        "status": t.status.value if hasattr(t.status, "value") else t.status,
+        "user": {"id": t.user.id, "name": t.user.name, "phone": t.user.phone} if t.user else None,
+        "created_at": t.created_at.isoformat() if t.created_at else None,
+        "updated_at": t.updated_at.isoformat() if t.updated_at else None,
+    }
+    if include_messages:
+        data["messages"] = [
+            {
+                "id": m.id,
+                "sender_type": m.sender_type.value if hasattr(m.sender_type, "value") else m.sender_type,
+                "message": m.message,
+                "created_at": m.created_at.isoformat() if m.created_at else None,
+            }
+            for m in t.messages
+        ]
+    return data
+
+
+@router.get("/admin/support/tickets")
+async def admin_list_tickets(
+    status_filter: Optional[str] = Query(None, alias="status"),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_admin),
+):
+    query = select(SupportTicket).options(selectinload(SupportTicket.user))
+    if status_filter:
+        query = query.where(SupportTicket.status == status_filter)
+    count_q = select(func.count()).select_from(query.subquery())
+    total = (await db.execute(count_q)).scalar()
+    query = query.order_by(SupportTicket.updated_at.desc()).offset((page - 1) * per_page).limit(per_page)
+    tickets = (await db.execute(query)).scalars().all()
+    return {
+        "items": [_admin_serialize_ticket(t) for t in tickets],
+        "total": total, "page": page, "per_page": per_page,
+        "total_pages": (total + per_page - 1) // per_page,
+    }
+
+
+@router.get("/admin/support/tickets/{ticket_id}")
+async def admin_get_ticket(ticket_id: str, db: AsyncSession = Depends(get_db), _: User = Depends(get_current_admin)):
+    result = await db.execute(
+        select(SupportTicket)
+        .options(selectinload(SupportTicket.user), selectinload(SupportTicket.messages))
+        .where(SupportTicket.id == ticket_id)
+    )
+    ticket = result.scalar_one_or_none()
+    if not ticket:
+        raise HTTPException(404, "Ticket not found")
+    return _admin_serialize_ticket(ticket, include_messages=True)
+
+
+@router.post("/admin/support/tickets/{ticket_id}/messages", status_code=201)
+async def admin_reply_ticket(
+    ticket_id: str,
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    current_admin: User = Depends(get_current_admin),
+):
+    result = await db.execute(select(SupportTicket).where(SupportTicket.id == ticket_id))
+    ticket = result.scalar_one_or_none()
+    if not ticket:
+        raise HTTPException(404, "Ticket not found")
+
+    message = payload.get("message", "").strip()
+    if not message:
+        raise HTTPException(400, "Message is required")
+
+    msg = SupportMessage(
+        ticket_id=ticket.id,
+        sender_type=SenderType.ADMIN,
+        sender_id=current_admin.id,
+        message=message,
+    )
+    db.add(msg)
+    if ticket.status == TicketStatus.OPEN:
+        ticket.status = TicketStatus.IN_PROGRESS
+    await db.flush()
+    return {"id": msg.id, "sender_type": "admin", "message": msg.message, "created_at": msg.created_at.isoformat()}
+
+
+@router.patch("/admin/support/tickets/{ticket_id}/status")
+async def admin_update_ticket_status(
+    ticket_id: str,
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_admin),
+):
+    result = await db.execute(select(SupportTicket).where(SupportTicket.id == ticket_id))
+    ticket = result.scalar_one_or_none()
+    if not ticket:
+        raise HTTPException(404, "Ticket not found")
+
+    new_status = payload.get("status")
+    try:
+        ticket.status = TicketStatus(new_status)
+    except ValueError:
+        raise HTTPException(400, f"Invalid status: {new_status}")
+    await db.flush()
+    return {"success": True, "status": ticket.status.value}

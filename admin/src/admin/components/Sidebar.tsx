@@ -2,7 +2,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, Package, ShoppingBag, Users, LogOut, Store,
   Boxes, Tag, BarChart3, Settings as SettingsIcon, Image, Bike, Gauge, X,
-  ChevronLeft, Sparkles, Wrench,
+  ChevronLeft, Sparkles, Wrench, MessageCircle,
 } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import type { ReactNode } from 'react'
@@ -21,6 +21,7 @@ const adminLinks: Array<
   { to: '/orders', icon: <ShoppingBag size={18} />, label: 'Orders' },
   { to: '/users', icon: <Users size={18} />, label: 'Users', adminOnly: true },
   { to: '/riders', icon: <Bike size={18} />, label: 'Riders', adminOnly: true },
+  { to: '/support', icon: <MessageCircle size={18} />, label: 'Support', adminOnly: true },
   { divider: true, label: 'Analytics' },
   { to: '/reports/sales', icon: <BarChart3 size={18} />, label: 'Sales Report', adminOnly: true },
   { to: '/reports/orders', icon: <BarChart3 size={18} />, label: 'Orders Report', adminOnly: true },
