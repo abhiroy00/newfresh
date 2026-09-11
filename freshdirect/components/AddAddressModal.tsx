@@ -17,6 +17,7 @@ type Props = {
   makeDefault?: boolean;
   autoLocate?: boolean;
   initialCity?: string;
+  editingAddress?: any;
 };
 
 const LABELS = [
@@ -37,26 +38,41 @@ const emptyForm = {
   landmark: '',
 };
 
-export default function AddAddressModal({ visible, onClose, onSaved, makeDefault, autoLocate, initialCity }: Props) {
+export default function AddAddressModal({ visible, onClose, onSaved, makeDefault, autoLocate, initialCity, editingAddress }: Props) {
   const { user } = useAuthStore();
   const [form, setForm] = React.useState({ ...emptyForm });
   const [coords, setCoords] = React.useState<{ latitude?: number; longitude?: number }>({});
   const [locating, setLocating] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
 
-  // Prefill name/phone from the logged-in user each time the modal opens.
+  // Prefill from the address being edited, or from the logged-in user for a new one.
   React.useEffect(() => {
     if (visible) {
-      setForm({
-        ...emptyForm,
-        full_name: user?.name || '',
-        // Backend stores phone like "+9198…"; keep only the local 10 digits.
-        phone: (user?.phone || '').replace(/\D/g, '').slice(-10),
-        city: initialCity || '',
-      });
-      setCoords({});
+      if (editingAddress) {
+        setForm({
+          label: editingAddress.label || 'Home',
+          full_name: editingAddress.full_name || '',
+          phone: (editingAddress.phone || '').replace(/\D/g, '').slice(-10),
+          line1: editingAddress.line1 || '',
+          line2: editingAddress.line2 || '',
+          city: editingAddress.city || '',
+          state: editingAddress.state || '',
+          pincode: editingAddress.pincode || '',
+          landmark: editingAddress.landmark || '',
+        });
+        setCoords({ latitude: editingAddress.latitude, longitude: editingAddress.longitude });
+      } else {
+        setForm({
+          ...emptyForm,
+          full_name: user?.name || '',
+          // Backend stores phone like "+9198…"; keep only the local 10 digits.
+          phone: (user?.phone || '').replace(/\D/g, '').slice(-10),
+          city: initialCity || '',
+        });
+        setCoords({});
+      }
     }
-  }, [visible]);
+  }, [visible, editingAddress]);
 
   const set = (key: keyof typeof emptyForm, value: string) =>
     setForm((f) => ({ ...f, [key]: value }));
@@ -80,7 +96,7 @@ export default function AddAddressModal({ visible, onClose, onSaved, makeDefault
     if (saving) return;
     setSaving(true);
     try {
-      const { data } = await usersApi.createAddress({
+      const payload = {
         label: f.label,
         full_name: f.full_name.trim(),
         phone: f.phone.trim(),
@@ -92,9 +108,11 @@ export default function AddAddressModal({ visible, onClose, onSaved, makeDefault
         landmark: f.landmark.trim() || undefined,
         latitude: c.latitude,
         longitude: c.longitude,
-        is_default: makeDefault,
-      });
-      showMessage({ message: 'Address saved', type: 'success' });
+      };
+      const { data } = editingAddress
+        ? await usersApi.updateAddress(editingAddress.id, payload)
+        : await usersApi.createAddress({ ...payload, is_default: makeDefault });
+      showMessage({ message: editingAddress ? 'Address updated' : 'Address saved', type: 'success' });
       onSaved(data?.data);
     } catch (e: any) {
       showMessage({
@@ -216,7 +234,7 @@ export default function AddAddressModal({ visible, onClose, onSaved, makeDefault
         <Pressable style={styles.backdropTop} onPress={onClose} />
         <View style={styles.sheet}>
             <View style={styles.handleRow}>
-              <Text style={styles.title}>Add New Address</Text>
+              <Text style={styles.title}>{editingAddress ? 'Edit Address' : 'Add New Address'}</Text>
               <Pressable style={styles.closeBtn} onPress={onClose} hitSlop={8}>
                 <X size={20} color={Colors.onSurface} />
               </Pressable>
@@ -285,7 +303,7 @@ export default function AddAddressModal({ visible, onClose, onSaved, makeDefault
                 ) : (
                   <>
                     <Check size={18} color="#fff" />
-                    <Text style={styles.saveBtnText}>Save Address</Text>
+                    <Text style={styles.saveBtnText}>{editingAddress ? 'Update Address' : 'Save Address'}</Text>
                   </>
                 )}
               </Pressable>

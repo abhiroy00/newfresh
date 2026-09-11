@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, Pressable,
+  View, Text, StyleSheet, ScrollView, Pressable, Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -147,7 +147,7 @@ export default function HelpScreen() {
             <Text style={styles.contactTitle}>Live Chat</Text>
             <Text style={styles.contactSub}>Avg. reply in 2 min</Text>
           </Pressable>
-          <Pressable style={styles.contactCard}>
+          <Pressable style={styles.contactCard} onPress={() => Linking.openURL('tel:18001234567')}>
             <View style={[styles.contactIcon, { backgroundColor: Colors.secondary + '1A' }]}>
               <Phone size={20} color={Colors.secondary} />
             </View>

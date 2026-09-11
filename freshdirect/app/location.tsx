@@ -6,7 +6,7 @@ import { appAlert } from '@/lib/appAlert';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
-import { ChevronLeft, MapPin, Navigation, Search, Home, Briefcase, Plus, Check, Building } from 'lucide-react-native';
+import { ChevronLeft, MapPin, Navigation, Search, Home, Briefcase, Plus, Check, Building, Pencil, Trash2 } from 'lucide-react-native';
 import { Colors, BorderRadius, Spacing, Shadows } from '@/constants/theme';
 import { usersApi } from '@/lib/api';
 import AddAddressModal from '@/components/AddAddressModal';
@@ -21,6 +21,8 @@ export default function LocationScreen() {
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [autoLocate, setAutoLocate] = useState(false);
+  const [editingAddress, setEditingAddress] = useState<any>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
   const btnScale = useSharedValue(1);
   const btnStyle = useAnimatedStyle(() => ({ transform: [{ scale: btnScale.value }] }));
@@ -54,6 +56,33 @@ export default function LocationScreen() {
   };
 
   const getIcon = (label: string) => ICON_MAP[label] || MapPin;
+
+  const handleEdit = (addr: any) => {
+    setEditingAddress(addr);
+    setAutoLocate(false);
+    setModalVisible(true);
+  };
+
+  const handleDelete = (addr: any) => {
+    appAlert('Delete Address', `Remove "${addr.label}" – ${addr.line1}?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          setDeletingId(addr.id);
+          try {
+            await usersApi.deleteAddress(addr.id);
+            await fetchAddresses();
+          } catch (e: any) {
+            appAlert('Error', e.response?.data?.detail || 'Failed to delete address');
+          } finally {
+            setDeletingId(null);
+          }
+        },
+      },
+    ]);
+  };
 
   if (loading) {
     return (
@@ -89,7 +118,7 @@ export default function LocationScreen() {
         {/* Use Current Location */}
         <Pressable
           style={styles.currentLocBtn}
-          onPress={() => { setAutoLocate(true); setModalVisible(true); }}
+          onPress={() => { setEditingAddress(null); setAutoLocate(true); setModalVisible(true); }}
         >
           <View style={styles.currentLocIcon}>
             <Navigation size={18} color={Colors.primary} />
@@ -132,6 +161,16 @@ export default function LocationScreen() {
                 <Text style={styles.addrText}>{addr.line1}{addr.line2 ? `, ${addr.line2}` : ''}</Text>
                 <Text style={styles.addrCity}>{addr.city}, {addr.state} {addr.pincode}</Text>
               </View>
+              <Pressable hitSlop={8} style={styles.addrActionBtn} onPress={() => handleEdit(addr)}>
+                <Pencil size={16} color={Colors.outline} />
+              </Pressable>
+              <Pressable hitSlop={8} style={styles.addrActionBtn} disabled={deletingId === addr.id} onPress={() => handleDelete(addr)}>
+                {deletingId === addr.id ? (
+                  <ActivityIndicator size="small" color={Colors.error} />
+                ) : (
+                  <Trash2 size={16} color={Colors.error} />
+                )}
+              </Pressable>
               <View style={[styles.radio, selected === addr.id && styles.radioActive]}>
                 {selected === addr.id && <Check size={12} color="#fff" />}
               </View>
@@ -142,7 +181,7 @@ export default function LocationScreen() {
         {/* Add New */}
         <Pressable
           style={styles.addNewBtn}
-          onPress={() => { setAutoLocate(false); setModalVisible(true); }}
+          onPress={() => { setEditingAddress(null); setAutoLocate(false); setModalVisible(true); }}
         >
           <Plus size={16} color={Colors.primary} />
           <Text style={styles.addNewText}>Add New Address</Text>
@@ -155,9 +194,11 @@ export default function LocationScreen() {
         visible={modalVisible}
         autoLocate={autoLocate}
         makeDefault={addresses.length === 0}
-        onClose={() => setModalVisible(false)}
+        editingAddress={editingAddress}
+        onClose={() => { setModalVisible(false); setEditingAddress(null); }}
         onSaved={(addr) => {
           setModalVisible(false);
+          setEditingAddress(null);
           fetchAddresses();
           if (addr?.id) setSelected(addr.id);
         }}
@@ -257,6 +298,10 @@ const styles = StyleSheet.create({
   addrIcon: {
     width: 44, height: 44, borderRadius: BorderRadius.md,
     backgroundColor: Colors.surfaceContainerHigh,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  addrActionBtn: {
+    width: 32, height: 32, borderRadius: BorderRadius.full,
     alignItems: 'center', justifyContent: 'center',
   },
   addrInfo: { flex: 1 },
