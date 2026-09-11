@@ -38,9 +38,7 @@ jobs:
       run:
         working-directory: admin
     env:
-      # No domain/TLS yet — API is plain HTTP on the EC2 box's own IP.
-      # Update this once a domain + HTTPS are set up for the backend.
-      VITE_API_BASE_URL: http://13.206.18.79:8000/api/v1
+      VITE_API_BASE_URL: https://api.gmartfresh.com/api/v1
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
