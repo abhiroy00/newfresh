@@ -20,7 +20,7 @@ def upgrade() -> None:
         sa.Column('id', sa.String(36), primary_key=True),
         sa.Column('user_id', sa.String(36), sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
         sa.Column('subject', sa.String(255), nullable=False),
-        sa.Column('status', sa.Enum('open', 'in_progress', 'resolved', 'closed', name='ticketstatus'), nullable=False, server_default='open'),
+        sa.Column('status', sa.Enum('OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', name='ticketstatus'), nullable=False, server_default='OPEN'),
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
         sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     )
@@ -31,7 +31,7 @@ def upgrade() -> None:
         'support_messages',
         sa.Column('id', sa.String(36), primary_key=True),
         sa.Column('ticket_id', sa.String(36), sa.ForeignKey('support_tickets.id', ondelete='CASCADE'), nullable=False),
-        sa.Column('sender_type', sa.Enum('customer', 'admin', name='sendertype'), nullable=False),
+        sa.Column('sender_type', sa.Enum('CUSTOMER', 'ADMIN', name='sendertype'), nullable=False),
         sa.Column('sender_id', sa.String(36), sa.ForeignKey('users.id', ondelete='SET NULL'), nullable=True),
         sa.Column('message', sa.Text(), nullable=False),
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
