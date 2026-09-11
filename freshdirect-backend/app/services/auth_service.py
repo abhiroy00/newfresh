@@ -104,6 +104,14 @@ async def verify_otp_and_login(
         user = User(phone=phone)
         db.add(user)
         await db.flush()
+    elif not user.is_active:
+        # Otherwise this issues a token that's rejected on the very next
+        # call by get_current_user's is_active check — reject upfront with
+        # a clear reason instead of a confusing failure one step later.
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This account has been deactivated. Please contact support.",
+        )
 
     access_token = create_access_token(subject=user.id)
     refresh_token = create_refresh_token(subject=user.id)
