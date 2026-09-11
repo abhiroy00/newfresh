@@ -28,23 +28,23 @@ api.interceptors.response.use(
       // Unauthenticated → clear session and bounce to login.
       localStorage.removeItem('admin_token')
       localStorage.removeItem('admin_user')
-      if (!window.location.pathname.endsWith('/admin/login')) {
-        window.location.href = '/admin/login'
+      if (!window.location.pathname.endsWith('/login')) {
+        window.location.href = '/login'
       }
     } else if (status === 403) {
       // Authenticated but not permitted → tell the user explicitly.
       // Do NOT log them out; they still have a valid session.
       const msg = serverMsg || "You don't have permission to perform this action (403)"
       toast.error(msg)
-      if (!window.location.pathname.endsWith('/admin/403') &&
-          !window.location.pathname.endsWith('/admin/login')) {
+      if (!window.location.pathname.endsWith('/403') &&
+          !window.location.pathname.endsWith('/login')) {
         // Soft-redirect to the dedicated 403 page for full-page failures.
         // Use replace so the back button doesn't loop.
         try {
-          window.history.replaceState({ message: msg, from: window.location.pathname }, '', '/admin/403')
+          window.history.replaceState({ message: msg, from: window.location.pathname }, '', '/403')
           window.dispatchEvent(new PopStateEvent('popstate'))
         } catch {
-          window.location.href = '/admin/403'
+          window.location.href = '/403'
         }
       }
     }
