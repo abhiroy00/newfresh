@@ -438,7 +438,10 @@ async def upload_image(
         api_key=settings.CLOUDINARY_API_KEY,
         api_secret=settings.CLOUDINARY_API_SECRET,
     )
-    res = cloudinary.uploader.upload(await file.read(), folder="Gmart/carousel")
+    try:
+        res = cloudinary.uploader.upload(await file.read(), folder="Gmart/carousel")
+    except cloudinary.exceptions.Error as e:
+        raise HTTPException(status_code=502, detail=f"Image upload failed: {e}")
     return {"url": res["secure_url"]}
 
 

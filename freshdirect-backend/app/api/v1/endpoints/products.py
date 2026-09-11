@@ -111,8 +111,12 @@ async def api_upload_category_image(category_id: str, file: UploadFile = File(..
         raise HTTPException(status_code=404, detail="Category not found")
 
     # Upload to Cloudinary
+    from fastapi import HTTPException
     cloudinary.config(cloud_name=settings.CLOUDINARY_CLOUD_NAME, api_key=settings.CLOUDINARY_API_KEY, api_secret=settings.CLOUDINARY_API_SECRET)
-    res = cloudinary.uploader.upload(await file.read(), folder="Gmart/categories")
+    try:
+        res = cloudinary.uploader.upload(await file.read(), folder="Gmart/categories")
+    except cloudinary.exceptions.Error as e:
+        raise HTTPException(status_code=502, detail=f"Image upload failed: {e}")
 
     # Update category with image URL
     category.image_url = res["secure_url"]
@@ -155,10 +159,14 @@ async def api_delete_product(product_id: str, db: AsyncSession = Depends(get_db)
 async def api_upload_image(product_id: str, file: UploadFile = File(...), db: AsyncSession = Depends(get_db), _: User = Depends(get_current_admin)):
     import cloudinary
     import cloudinary.uploader
+    from fastapi import HTTPException
     from app.core.config import settings
     from app.models.product import ProductImage
     cloudinary.config(cloud_name=settings.CLOUDINARY_CLOUD_NAME, api_key=settings.CLOUDINARY_API_KEY, api_secret=settings.CLOUDINARY_API_SECRET)
-    res = cloudinary.uploader.upload(await file.read(), folder="Gmart/products")
+    try:
+        res = cloudinary.uploader.upload(await file.read(), folder="Gmart/products")
+    except cloudinary.exceptions.Error as e:
+        raise HTTPException(status_code=502, detail=f"Image upload failed: {e}")
     img = ProductImage(product_id=product_id, url=res["secure_url"], cloudinary_public_id=res["public_id"])
     db.add(img)
     await db.flush()
