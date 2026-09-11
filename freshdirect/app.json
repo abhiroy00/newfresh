@@ -57,8 +57,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "1047c768-5220-4b33-afb5-d4f1522b0d90"
+        "projectId": "b6905e08-88ee-4257-ae81-1d5b6318baf3"
       }
-    }
+    },
+    "owner": "abhiroy"
   }
 }

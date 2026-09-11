@@ -94,7 +94,7 @@ jobs:
             --non-interactive \
             --no-wait
         env:
-          EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
+          EXPO_PUBLIC_API_URL: https://api.gmartfresh.com
 
   # ── 3. iOS build (EAS) — manual dispatch only ────────────────────────────────
   build-ios:
@@ -136,14 +136,14 @@ jobs:
             --non-interactive \
             --no-wait
         env:
-          EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
+          EXPO_PUBLIC_API_URL: https://api.gmartfresh.com
 
-  # ── 4. OTA update — manual dispatch only ─────────────────────────────────────
+  # ── 4. OTA update — automatic on push, or manual dispatch ────────────────────
   ota-update:
     name: OTA Update
     runs-on: ubuntu-latest
     needs: check
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     defaults:
       run:
         working-directory: freshdirect
@@ -172,4 +172,4 @@ jobs:
             --message "Deploy ${{ github.sha }}" \
             --non-interactive
         env:
-          EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
+          EXPO_PUBLIC_API_URL: https://api.gmartfresh.com
