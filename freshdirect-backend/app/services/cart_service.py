@@ -28,7 +28,10 @@ async def get_or_create_cart(user_id: str, db: AsyncSession) -> Cart:
 
 def _calculate_totals(cart: Cart) -> dict:
     subtotal = sum(item.price_at_add * item.quantity for item in cart.items)
-    delivery_fee = 0.0 if subtotal >= settings.FREE_DELIVERY_THRESHOLD else settings.DELIVERY_FEE
+    if not cart.items or subtotal >= settings.FREE_DELIVERY_THRESHOLD:
+        delivery_fee = 0.0
+    else:
+        delivery_fee = settings.DELIVERY_FEE
     return {"subtotal": subtotal, "delivery_fee": delivery_fee, "total": subtotal + delivery_fee}
 
 

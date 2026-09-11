@@ -78,60 +78,10 @@ async def admin_me(current_user: User = Depends(get_current_admin)):
     }
 
 
-# ── Products (proxy to match admin panel's expected paths) ────────────────────
-
-@router.get("/products")
-async def admin_list_products(
-    page: int = Query(1, ge=1),
-    per_page: int = Query(20, ge=1, le=100),
-    search: Optional[str] = None,
-    db: AsyncSession = Depends(get_db),
-):
-    query = (
-        select(Product)
-        .options(selectinload(Product.category), selectinload(Product.images))
-        .where(Product.is_active)
-    )
-    if search:
-        query = query.where(or_(Product.name.ilike(f"%{search}%"), Product.description.ilike(f"%{search}%")))
-    count_q = select(func.count()).select_from(query.subquery())
-    total = (await db.execute(count_q)).scalar()
-    query = query.order_by(Product.created_at.desc()).offset((page - 1) * per_page).limit(per_page)
-    products = (await db.execute(query)).scalars().all()
-    items = []
-    for p in products:
-        items.append({
-            "id": p.id, "name": p.name, "description": p.description,
-            "price": p.price, "original_price": p.original_price, "stock": p.stock, "unit": p.unit,
-            "badge": p.badge, "badge_color": p.badge_color,
-            "is_organic": p.is_organic, "is_featured": p.is_featured,
-            "primary_image_url": p.primary_image_url,
-            "images": [img.url for img in p.images],
-            "category": {"id": p.category.id, "name": p.category.name} if p.category else None,
-            "created_at": p.created_at.isoformat() if p.created_at else None,
-        })
-    return {"items": items, "total": total, "page": page, "per_page": per_page, "total_pages": (total + per_page - 1) // per_page}
-
-
-@router.get("/products/{product_id}")
-async def admin_get_product(product_id: str, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(Product).options(selectinload(Product.category), selectinload(Product.images)).where(Product.id == product_id)
-    )
-    p = result.scalar_one_or_none()
-    if not p:
-        raise HTTPException(404, "Product not found")
-    return {
-        "id": p.id, "name": p.name, "description": p.description,
-        "price": p.price, "original_price": p.original_price, "stock": p.stock, "unit": p.unit,
-        "badge": p.badge, "badge_color": p.badge_color,
-        "is_organic": p.is_organic, "is_featured": p.is_featured,
-        "category_id": p.category_id,
-        "primary_image_url": p.primary_image_url,
-        "images": [img.url for img in p.images],
-        "category": {"id": p.category.id, "name": p.category.name} if p.category else None,
-    }
-
+# ── Products ──────────────────────────────────────────────────────────────────
+# GET /products and GET /products/{id} intentionally live in
+# app/api/v1/endpoints/products.py's public router, which is registered before
+# this one — this router only needs the mutating routes below.
 
 @router.post("/products", status_code=201)
 async def admin_create_product(payload: dict, db: AsyncSession = Depends(get_db), _: User = Depends(get_current_admin)):
