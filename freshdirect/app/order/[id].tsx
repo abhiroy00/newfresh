@@ -176,7 +176,7 @@ export default function OrderDetailScreen() {
                 <Text style={styles.itemQty}>Qty: {it.quantity}</Text>
               </View>
               <Text style={styles.itemPrice}>
-                {`\u20b9${it.item_total ?? it.price_at_add ?? it.product?.price ?? 0}`}
+                {`\u20b9${it.total_price ?? it.unit_price ?? 0}`}
               </Text>
             </View>
           ))}
