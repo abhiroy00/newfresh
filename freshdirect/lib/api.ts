@@ -66,18 +66,27 @@ api.interceptors.response.use(
     const original = error.config;
     if (error.response?.status === 401 && !original._retry) {
       original._retry = true;
-      try {
-        const refreshToken = await getToken('refresh_token');
-        if (refreshToken) {
+      const refreshToken = await getToken('refresh_token');
+      if (refreshToken) {
+        try {
           const { data } = await axios.post(`${BASE_URL}/api/v1/auth/refresh`, { refresh_token: refreshToken });
           await setToken('auth_token', data.data.access_token);
           await setToken('refresh_token', data.data.refresh_token);
           original.headers.Authorization = `Bearer ${data.data.access_token}`;
           return api(original);
+        } catch (refreshError: any) {
+          // Only clear the session if the server explicitly rejected the
+          // refresh token (expired/invalid). A network error or server
+          // hiccup here must NOT log the user out — otherwise a brief
+          // connectivity blip coinciding with access-token expiry would
+          // force a fresh login every time.
+          const status = refreshError?.response?.status;
+          if (status === 401 || status === 400) {
+            await removeToken('auth_token');
+            await removeToken('refresh_token');
+          }
         }
-      } catch {}
-      await removeToken('auth_token');
-      await removeToken('refresh_token');
+      }
     }
     return Promise.reject(error);
   }
