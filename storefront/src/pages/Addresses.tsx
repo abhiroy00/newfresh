@@ -5,12 +5,15 @@ import { MapPin, Plus, Pencil, Trash2, Star, Home, Briefcase } from 'lucide-reac
 import { usersApi } from '@/api/endpoints'
 import AddressForm from '@/components/address/AddressForm'
 import EmptyState from '@/components/ui/EmptyState'
+import { useAuthStore } from '@/store/authStore'
 import type { Address } from '@/types'
 
 const LABEL_ICON: Record<string, any> = { Home, Work: Briefcase }
 
 export default function Addresses() {
   const queryClient = useQueryClient()
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const openLogin = useAuthStore((s) => s.openLogin)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Address | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -18,6 +21,7 @@ export default function Addresses() {
   const { data: addresses, isLoading } = useQuery({
     queryKey: ['addresses'],
     queryFn: async () => (await usersApi.listAddresses()).data.data as Address[],
+    enabled: isAuthenticated,
   })
 
   const refetch = () => queryClient.invalidateQueries({ queryKey: ['addresses'] })
@@ -49,6 +53,18 @@ export default function Addresses() {
     } catch {
       toast.error('Could not set as default')
     }
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="max-w-lg mx-auto px-4 py-20">
+        <EmptyState
+          icon={MapPin}
+          title="Login to manage your addresses"
+          action={<button onClick={openLogin} className="btn-primary mt-2">Login</button>}
+        />
+      </div>
+    )
   }
 
   return (
