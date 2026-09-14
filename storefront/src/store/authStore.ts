@@ -73,6 +73,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     localStorage.removeItem('refresh_token')
     localStorage.removeItem('user')
     set({ user: null, isAuthenticated: false })
+    // Also resets the cart store, which otherwise keeps the previous user's
+    // items/badge count in memory until a full page reload.
+    window.dispatchEvent(new Event('gmart:logout'))
   },
 
   refreshMe: async () => {
