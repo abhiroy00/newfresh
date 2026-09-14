@@ -45,7 +45,7 @@ export default function ProductCard({ product }: { product: Product }) {
   return (
     <Link
       to={`/product/${product.id}`}
-      className="card group relative flex flex-col overflow-hidden hover:shadow-lg transition-shadow"
+      className="card card-hover group relative flex flex-col overflow-hidden"
     >
       <div className="relative aspect-square bg-surface-container-low overflow-hidden">
         {product.primary_image_url ? (
@@ -108,7 +108,7 @@ export default function ProductCard({ product }: { product: Product }) {
             type="button"
             onClick={handleAdd}
             disabled={outOfStock || adding}
-            className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center disabled:opacity-40 active:scale-90 transition-transform shadow-sm"
+            className="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center disabled:opacity-40 hover:scale-110 active:scale-90 transition-transform shadow-md"
             aria-label="Add to cart"
           >
             {added ? <Check size={16} /> : adding ? <ShoppingCart size={14} className="animate-pulse" /> : <Plus size={16} />}
