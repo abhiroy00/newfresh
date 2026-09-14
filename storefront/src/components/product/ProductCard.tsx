@@ -1,0 +1,120 @@
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { Leaf, Plus, ShoppingCart, Check } from 'lucide-react'
+import toast from 'react-hot-toast'
+import type { Product } from '@/types'
+import { formatPrice } from '@/lib/format'
+import { useCartStore } from '@/store/cartStore'
+import { useAuthStore } from '@/store/authStore'
+
+export default function ProductCard({ product }: { product: Product }) {
+  const [adding, setAdding] = useState(false)
+  const [added, setAdded] = useState(false)
+  const addItem = useCartStore((s) => s.addItem)
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const openLogin = useAuthStore((s) => s.openLogin)
+
+  const discount =
+    product.original_price && product.original_price > product.price
+      ? Math.round((1 - product.price / product.original_price) * 100)
+      : null
+
+  const outOfStock = product.stock <= 0
+
+  const handleAdd = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!isAuthenticated) {
+      toast('Please login to add items to your cart')
+      openLogin()
+      return
+    }
+    if (outOfStock || adding) return
+    setAdding(true)
+    try {
+      await addItem(product.id, 1)
+      setAdded(true)
+      setTimeout(() => setAdded(false), 1500)
+    } catch {
+      toast.error('Could not add to cart. Please try again.')
+    } finally {
+      setAdding(false)
+    }
+  }
+
+  return (
+    <Link
+      to={`/product/${product.id}`}
+      className="card group relative flex flex-col overflow-hidden hover:shadow-lg transition-shadow"
+    >
+      <div className="relative aspect-square bg-surface-container-low overflow-hidden">
+        {product.primary_image_url ? (
+          <img
+            src={product.primary_image_url}
+            alt={product.name}
+            loading="lazy"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <Leaf className="text-outline" size={40} />
+          </div>
+        )}
+
+        <div className="absolute top-2 left-2 flex flex-col gap-1 items-start">
+          {product.badge && (
+            <span
+              className="text-[10px] font-bold uppercase text-white px-2 py-0.5 rounded-full"
+              style={{ backgroundColor: product.badge_color || '#005322' }}
+            >
+              {product.badge}
+            </span>
+          )}
+          {product.is_organic && (
+            <span className="flex items-center gap-1 text-[10px] font-bold text-white bg-accent-mint px-2 py-0.5 rounded-full">
+              <Leaf size={9} fill="white" /> Organic
+            </span>
+          )}
+        </div>
+
+        {discount && (
+          <span className="absolute top-2 right-2 text-[10px] font-bold text-error bg-error-container px-2 py-0.5 rounded-full">
+            {discount}% OFF
+          </span>
+        )}
+
+        {outOfStock && (
+          <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
+            <span className="text-sm font-bold text-on-surface-variant">Out of stock</span>
+          </div>
+        )}
+      </div>
+
+      <div className="p-3 flex flex-col gap-1 flex-1">
+        <h3 className="text-sm font-semibold text-on-surface-deep line-clamp-2 leading-snug min-h-[2.5rem]">
+          {product.name}
+        </h3>
+        <span className="text-xs text-on-surface-variant">{product.unit}</span>
+
+        <div className="flex items-center justify-between mt-1">
+          <div className="flex items-baseline gap-1.5">
+            <span className="font-bold text-primary">{formatPrice(product.price)}</span>
+            {product.original_price && product.original_price > product.price && (
+              <span className="text-xs text-outline line-through">{formatPrice(product.original_price)}</span>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={handleAdd}
+            disabled={outOfStock || adding}
+            className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center disabled:opacity-40 active:scale-90 transition-transform shadow-sm"
+            aria-label="Add to cart"
+          >
+            {added ? <Check size={16} /> : adding ? <ShoppingCart size={14} className="animate-pulse" /> : <Plus size={16} />}
+          </button>
+        </div>
+      </div>
+    </Link>
+  )
+}

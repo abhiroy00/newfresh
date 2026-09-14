@@ -101,6 +101,13 @@ jobs:
             fi
 
             cd ~/app/freshdirect-backend
+
+            # Idempotent CORS patch: add the storefront's origin if it's not
+            # already in .env's ALLOWED_ORIGINS. Never prints or touches any
+            # other value in the file — safe to run on every deploy.
+            grep -q 'shop.gmartfresh.com' .env 2>/dev/null || \
+              sed -i 's|^ALLOWED_ORIGINS=\[|ALLOWED_ORIGINS=["https://shop.gmartfresh.com",|' .env
+
             sudo docker compose -f docker-compose.prod.yml build
             sudo docker compose -f docker-compose.prod.yml up -d
             sleep 15

@@ -70,6 +70,7 @@ class Settings(BaseSettings):
         "exp://localhost:8081",
         "https://gmartfresh.com",
         "https://www.gmartfresh.com",
+        "https://shop.gmartfresh.com",
         "https://main.d1cr5kgmgeoc49.amplifyapp.com",
     ]
 
