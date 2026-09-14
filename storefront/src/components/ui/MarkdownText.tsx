@@ -1,10 +1,16 @@
 import React from 'react'
+import DOMPurify from 'dompurify'
 
 /**
- * Minimal markdown renderer for product descriptions written in the admin's
- * rich-text editor. Supports: # headings, **bold**, *italic*, bullet lists
- * (* or -), and blank-line paragraphs. No external deps.
+ * Product descriptions come from two different sources depending on how the
+ * admin wrote them: plain markdown-ish text (# heading, **bold**, * bullet)
+ * for older/manually-typed entries, or HTML straight from the admin's Quill
+ * rich-text editor (<p>, &nbsp;, <strong>, <ul><li>, ...) for newer ones.
+ * Detect which one we've got and render accordingly — there is no single
+ * format guaranteed across the catalog.
  */
+const HTML_TAG_RE = /<\/?[a-z][\s\S]*>/i
+
 function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
   const segments: React.ReactNode[] = []
   const re = /(\*\*([^*]+)\*\*|\*([^*]+)\*)/g
@@ -25,10 +31,7 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
   return segments
 }
 
-export default function MarkdownText({ children }: { children?: string | null }) {
-  const source = (children || '').replace(/\r\n/g, '\n')
-  if (!source.trim()) return null
-
+function MarkdownBlocks({ source }: { source: string }) {
   const lines = source.split('\n')
   const blocks: React.ReactNode[] = []
 
@@ -66,4 +69,19 @@ export default function MarkdownText({ children }: { children?: string | null })
   })
 
   return <div>{blocks}</div>
+}
+
+export default function MarkdownText({ children }: { children?: string | null }) {
+  const source = (children || '').replace(/\r\n/g, '\n')
+  if (!source.trim()) return null
+
+  if (HTML_TAG_RE.test(source)) {
+    const clean = DOMPurify.sanitize(source, {
+      ALLOWED_TAGS: ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 's', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'a', 'blockquote', 'span'],
+      ALLOWED_ATTR: ['href', 'target', 'rel'],
+    })
+    return <div className="rich-text text-sm leading-relaxed text-on-surface-variant" dangerouslySetInnerHTML={{ __html: clean }} />
+  }
+
+  return <MarkdownBlocks source={source} />
 }

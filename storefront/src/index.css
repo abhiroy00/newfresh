@@ -126,4 +126,18 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
+
+  .rich-text p { margin-bottom: 0.6em; }
+  .rich-text p:last-child { margin-bottom: 0; }
+  .rich-text strong, .rich-text b { font-weight: 700; color: var(--color-on-surface); }
+  .rich-text h1, .rich-text h2, .rich-text h3, .rich-text h4 {
+    font-weight: 800; color: var(--color-on-surface-deep); margin: 0.7em 0 0.3em;
+  }
+  .rich-text ul, .rich-text ol { padding-left: 1.25rem; margin-bottom: 0.6em; }
+  .rich-text li { margin-bottom: 0.3em; }
+  .rich-text a { color: var(--color-primary); text-decoration: underline; }
+  .rich-text blockquote {
+    border-left: 3px solid var(--color-primary-fixed);
+    padding-left: 0.75rem; color: var(--color-on-surface-variant); font-style: italic;
+  }
 }
