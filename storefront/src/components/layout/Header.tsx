@@ -81,7 +81,7 @@ export default function Header() {
                   onBlur={() => setTimeout(() => setAccountOpen(false), 150)}
                   className="w-10 h-10 rounded-full bg-primary-fixed text-primary flex items-center justify-center font-bold"
                 >
-                  {(user?.name || user?.phone || 'U').charAt(0).toUpperCase()}
+                  {user?.name?.trim() ? user.name.trim().charAt(0).toUpperCase() : <User size={17} />}
                 </button>
                 {accountOpen && (
                   <div className="absolute right-0 mt-2 w-52 bg-white rounded-2xl shadow-xl border border-outline-variant py-2 animate-fade-in">

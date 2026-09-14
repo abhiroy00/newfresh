@@ -50,7 +50,7 @@ export default function Account() {
       <div className="card p-5 mb-6">
         <div className="flex items-center gap-3 mb-5">
           <div className="w-14 h-14 rounded-full bg-primary-fixed text-primary flex items-center justify-center font-extrabold text-xl">
-            {(user?.name || user?.phone || 'U').charAt(0).toUpperCase()}
+            {user?.name?.trim() ? user.name.trim().charAt(0).toUpperCase() : <User size={24} />}
           </div>
           <div>
             <p className="font-bold text-on-surface-deep">{user?.name || 'Add your name'}</p>
