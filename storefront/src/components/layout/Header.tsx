@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Search, ShoppingCart, User, Menu, X, Package, MapPin, LogOut, LifeBuoy } from 'lucide-react'
+import { Search, ShoppingCart, User, Menu, X, Package, MapPin, LogOut, LifeBuoy, Truck, PhoneCall } from 'lucide-react'
 import { useCartStore } from '@/store/cartStore'
 import { useAuthStore } from '@/store/authStore'
+import { SUPPORT_PHONE, FREE_DELIVERY_THRESHOLD } from '@/lib/constants'
 
 export default function Header() {
   const navigate = useNavigate()
@@ -26,6 +27,16 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b border-outline-variant">
+      <div className="hidden sm:block bg-primary text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-8 flex items-center justify-between text-xs font-medium">
+          <span className="flex items-center gap-1.5">
+            <Truck size={12} /> Free delivery on orders above ₹{FREE_DELIVERY_THRESHOLD}
+          </span>
+          <a href={`tel:${SUPPORT_PHONE}`} className="flex items-center gap-1.5 hover:text-primary-fixed transition-colors">
+            <PhoneCall size={12} /> {SUPPORT_PHONE}
+          </a>
+        </div>
+      </div>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-4 h-16">
           <Link to="/" className="flex items-center gap-2 shrink-0">
