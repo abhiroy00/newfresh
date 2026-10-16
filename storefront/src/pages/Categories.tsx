@@ -1,13 +1,23 @@
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { productsApi } from '@/api/endpoints'
+import ErrorState from '@/components/ui/ErrorState'
 import type { Category } from '@/types'
 
 export default function Categories() {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['categories'],
     queryFn: async () => (await productsApi.categories()).data.data as Category[],
   })
+
+  if (isError) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <h1 className="text-2xl font-extrabold text-on-surface-deep mb-6">All Categories</h1>
+        <ErrorState subtitle="Couldn't load categories." onRetry={() => refetch()} />
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

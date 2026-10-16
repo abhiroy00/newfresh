@@ -6,6 +6,8 @@ import { Package, MapPin, CheckCircle2, Circle, Truck, XCircle, PhoneCall } from
 import { ordersApi } from '@/api/endpoints'
 import { formatPrice, formatDateTime } from '@/lib/format'
 import { SUPPORT_PHONE } from '@/lib/constants'
+import ConfirmDialog from '@/components/ui/ConfirmDialog'
+import ErrorState from '@/components/ui/ErrorState'
 import type { Order, OrderStatus } from '@/types'
 
 const STEPS: { key: OrderStatus; label: string }[] = [
@@ -20,12 +22,17 @@ export default function OrderDetail() {
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
   const [cancelling, setCancelling] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
-  const { data: order, isLoading } = useQuery({
+  const { data: order, isLoading, isError, refetch } = useQuery({
     queryKey: ['order', id],
     queryFn: async () => (await ordersApi.detail(id!)).data.data as Order,
     enabled: !!id,
   })
+
+  if (isError) {
+    return <ErrorState subtitle="Couldn't load this order." onRetry={() => refetch()} />
+  }
 
   if (isLoading || !order) {
     return <div className="max-w-3xl mx-auto px-4 py-16 text-center text-on-surface-variant">{isLoading ? 'Loading...' : 'Order not found'}</div>
@@ -37,7 +44,7 @@ export default function OrderDetail() {
   const address: any = order.address
 
   const handleCancel = async () => {
-    if (!confirm('Cancel this order?')) return
+    setConfirmOpen(false)
     setCancelling(true)
     try {
       await ordersApi.cancel(order.id, 'Customer requested cancellation')
@@ -56,7 +63,7 @@ export default function OrderDetail() {
       <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
         <h1 className="text-2xl font-extrabold text-on-surface-deep">Order #{order.order_number}</h1>
         {canCancel && (
-          <button onClick={handleCancel} disabled={cancelling} className="text-sm font-semibold text-error flex items-center gap-1">
+          <button onClick={() => setConfirmOpen(true)} disabled={cancelling} className="text-sm font-semibold text-error flex items-center gap-1">
             <XCircle size={15} /> {cancelling ? 'Cancelling...' : 'Cancel Order'}
           </button>
         )}
@@ -158,6 +165,18 @@ export default function OrderDetail() {
         <Link to="/orders" className="text-sm font-semibold text-primary">← Back to Orders</Link>
         <Link to="/support" className="text-sm font-semibold text-on-surface-variant">Need help? Contact support</Link>
       </div>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Cancel this order?"
+        message="This can't be undone. You'll need to place a new order if you change your mind."
+        confirmLabel="Yes, Cancel Order"
+        cancelLabel="Keep Order"
+        danger
+        loading={cancelling}
+        onConfirm={handleCancel}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </div>
   )
 }

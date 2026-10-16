@@ -15,10 +15,10 @@ class PaymentCreateOrderResponse(BaseModel):
 
 
 class PaymentVerify(BaseModel):
-    razorpay_order_id: str
-    razorpay_payment_id: str
-    razorpay_signature: str
-    order_id: str  # our internal order ID
+    razorpay_order_id: str = ""
+    razorpay_payment_id: str = ""
+    razorpay_signature: str = ""
+    order_id: str = ""  # our internal order ID
 
 
 class PaymentWebhook(BaseModel):

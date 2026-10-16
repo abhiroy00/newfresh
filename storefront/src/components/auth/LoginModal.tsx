@@ -3,6 +3,7 @@ import { X, Phone, ShieldCheck, ArrowLeft } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuthStore } from '@/store/authStore'
 import { useCartStore } from '@/store/cartStore'
+import { useWishlistStore } from '@/store/wishlistStore'
 
 export default function LoginModal() {
   const open = useAuthStore((s) => s.loginModalOpen)
@@ -10,6 +11,7 @@ export default function LoginModal() {
   const sendOtp = useAuthStore((s) => s.sendOtp)
   const verifyOtp = useAuthStore((s) => s.verifyOtp)
   const fetchCart = useCartStore((s) => s.fetchCart)
+  const fetchWishlist = useWishlistStore((s) => s.fetchWishlist)
 
   const [step, setStep] = useState<'phone' | 'otp'>('phone')
   const [phone, setPhone] = useState('')
@@ -59,6 +61,7 @@ export default function LoginModal() {
       await verifyOtp(`+91${digits}`, otp)
       toast.success('Welcome to Gmart!')
       fetchCart()
+      fetchWishlist()
     } catch (err: any) {
       toast.error(err?.response?.data?.detail || 'Invalid OTP. Try again.')
     } finally {

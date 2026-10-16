@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from app.models.cart import Cart
     from app.models.order import Order
     from app.models.notification import FCMToken
+    from app.models.wishlist import WishlistItem
 
 
 class User(Base):
@@ -47,6 +48,9 @@ class User(Base):
     )
     fcm_tokens: Mapped[list["FCMToken"]] = relationship(
         "FCMToken", back_populates="user", cascade="all, delete-orphan"
+    )
+    wishlist_items: Mapped[list["WishlistItem"]] = relationship(
+        "WishlistItem", back_populates="user", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:

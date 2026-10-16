@@ -6,6 +6,7 @@ import { productsApi } from '@/api/endpoints'
 import ProductCard from '@/components/product/ProductCard'
 import ProductSkeleton from '@/components/ui/ProductSkeleton'
 import SectionHeading from '@/components/ui/SectionHeading'
+import ErrorState from '@/components/ui/ErrorState'
 import type { Product, Category, Carousel } from '@/types'
 
 export default function Home() {
@@ -133,25 +134,33 @@ export default function Home() {
       )}
 
       {/* Featured */}
-      {(featuredQuery.isLoading || (featuredQuery.data && featuredQuery.data.length > 0)) && (
+      {(featuredQuery.isLoading || featuredQuery.isError || (featuredQuery.data && featuredQuery.data.length > 0)) && (
         <section className="mb-12">
           <SectionHeading title="Featured Picks" />
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-            {featuredQuery.isLoading
-              ? Array.from({ length: 4 }).map((_, i) => <ProductSkeleton key={i} />)
-              : featuredQuery.data!.map((p) => <ProductCard key={p.id} product={p} />)}
-          </div>
+          {featuredQuery.isError ? (
+            <ErrorState subtitle="Couldn't load featured picks." onRetry={() => featuredQuery.refetch()} />
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              {featuredQuery.isLoading
+                ? Array.from({ length: 4 }).map((_, i) => <ProductSkeleton key={i} />)
+                : featuredQuery.data!.map((p) => <ProductCard key={p.id} product={p} />)}
+            </div>
+          )}
         </section>
       )}
 
       {/* Fresh picks */}
       <section>
         <SectionHeading title="Today's Fresh Picks" linkTo="/products" linkLabel="View all" />
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-          {freshQuery.isLoading
-            ? Array.from({ length: 8 }).map((_, i) => <ProductSkeleton key={i} />)
-            : freshQuery.data!.map((p) => <ProductCard key={p.id} product={p} />)}
-        </div>
+        {freshQuery.isError ? (
+          <ErrorState subtitle="Couldn't load today's picks." onRetry={() => freshQuery.refetch()} />
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            {freshQuery.isLoading
+              ? Array.from({ length: 8 }).map((_, i) => <ProductSkeleton key={i} />)
+              : freshQuery.data!.map((p) => <ProductCard key={p.id} product={p} />)}
+          </div>
+        )}
       </section>
     </div>
   )

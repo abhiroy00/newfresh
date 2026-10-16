@@ -57,6 +57,13 @@ export interface Cart {
   item_count: number
 }
 
+export interface WishlistItem {
+  id: string
+  product_id: string
+  created_at: string
+  product: Product
+}
+
 export interface Address {
   id: string
   label?: string | null

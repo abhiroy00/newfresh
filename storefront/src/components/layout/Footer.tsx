@@ -55,6 +55,8 @@ export default function Footer() {
             <li><Link to="/products" className="hover:text-accent-mint transition-colors">All Products</Link></li>
             <li><Link to="/categories" className="hover:text-accent-mint transition-colors">Categories</Link></li>
             <li><Link to="/orders" className="hover:text-accent-mint transition-colors">Track Order</Link></li>
+            <li><Link to="/wishlist" className="hover:text-accent-mint transition-colors">Wishlist</Link></li>
+            <li><Link to="/about" className="hover:text-accent-mint transition-colors">About Us</Link></li>
           </ul>
         </div>
 
@@ -62,8 +64,10 @@ export default function Footer() {
           <h4 className="font-bold text-sm text-white mb-4 tracking-wide uppercase">Support</h4>
           <ul className="flex flex-col gap-2.5 text-sm text-white/60">
             <li><Link to="/support" className="hover:text-accent-mint transition-colors">Help Center</Link></li>
+            <li><Link to="/contact" className="hover:text-accent-mint transition-colors">Contact Us</Link></li>
             <li><Link to="/privacy" className="hover:text-accent-mint transition-colors">Privacy Policy</Link></li>
             <li><Link to="/terms" className="hover:text-accent-mint transition-colors">Terms & Conditions</Link></li>
+            <li><Link to="/refund-policy" className="hover:text-accent-mint transition-colors">Refund Policy</Link></li>
           </ul>
         </div>
 

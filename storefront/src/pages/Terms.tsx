@@ -21,6 +21,7 @@ const SECTIONS: LegalSection[] = [
   ]},
   { heading: 'Cancellations and Refunds', body: [
     'You can cancel an order while it is still Pending or Confirmed. Once an order is being packed or is out for delivery, it may not be cancellable. Eligible refunds for prepaid orders are processed to the original payment method within a reasonable period.',
+    'See our full Refund & Cancellation Policy page (linked in the footer) for complete details.',
   ]},
   { heading: 'Product Quality', body: [
     'If you receive a damaged, spoiled, or incorrect item, contact us within 24 hours of delivery and we will arrange a replacement or refund for that item.',

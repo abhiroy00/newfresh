@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Search, ShoppingCart, User, Menu, X, Package, MapPin, LogOut, LifeBuoy, Truck, PhoneCall } from 'lucide-react'
+import { Search, ShoppingCart, User, Menu, X, Package, MapPin, LogOut, LifeBuoy, Truck, PhoneCall, Heart } from 'lucide-react'
 import { useCartStore } from '@/store/cartStore'
 import { useAuthStore } from '@/store/authStore'
+import { useWishlistStore } from '@/store/wishlistStore'
 import { SUPPORT_PHONE, FREE_DELIVERY_THRESHOLD } from '@/lib/constants'
 
 export default function Header() {
@@ -13,6 +14,7 @@ export default function Header() {
 
   const itemCount = useCartStore((s) => s.item_count)
   const openDrawer = useCartStore((s) => s.openDrawer)
+  const wishlistCount = useWishlistStore((s) => s.items.length)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const user = useAuthStore((s) => s.user)
   const openLogin = useAuthStore((s) => s.openLogin)
@@ -61,6 +63,19 @@ export default function Header() {
           </form>
 
           <div className="flex items-center gap-2 ml-auto shrink-0">
+            <Link
+              to="/wishlist"
+              className="relative w-10 h-10 rounded-full hidden sm:flex items-center justify-center hover:bg-surface-container-low transition-colors"
+              aria-label="Wishlist"
+            >
+              <Heart size={19} className="text-on-surface" />
+              {wishlistCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 bg-accent-orange text-white text-[10px] font-bold rounded-full w-4.5 h-4.5 min-w-[18px] h-[18px] flex items-center justify-center">
+                  {wishlistCount}
+                </span>
+              )}
+            </Link>
+
             <button
               onClick={openDrawer}
               className="relative w-10 h-10 rounded-full flex items-center justify-center hover:bg-surface-container-low transition-colors"
@@ -87,6 +102,7 @@ export default function Header() {
                   <div className="absolute right-0 mt-2 w-52 bg-white rounded-2xl shadow-xl border border-outline-variant py-2 animate-fade-in">
                     <Link to="/account" className="flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-surface-container-low"><User size={15}/> My Account</Link>
                     <Link to="/orders" className="flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-surface-container-low"><Package size={15}/> My Orders</Link>
+                    <Link to="/wishlist" className="flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-surface-container-low"><Heart size={15}/> Wishlist</Link>
                     <Link to="/addresses" className="flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-surface-container-low"><MapPin size={15}/> Addresses</Link>
                     <Link to="/support" className="flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-surface-container-low"><LifeBuoy size={15}/> Support</Link>
                     <button onClick={() => logout()} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-error hover:bg-error-container text-left"><LogOut size={15}/> Logout</button>
@@ -127,6 +143,7 @@ export default function Header() {
               <>
                 <Link to="/account" onClick={() => setMobileOpen(false)} className="font-semibold text-sm py-1">My Account</Link>
                 <Link to="/orders" onClick={() => setMobileOpen(false)} className="font-semibold text-sm py-1">My Orders</Link>
+                <Link to="/wishlist" onClick={() => setMobileOpen(false)} className="font-semibold text-sm py-1">Wishlist</Link>
                 <Link to="/addresses" onClick={() => setMobileOpen(false)} className="font-semibold text-sm py-1">Addresses</Link>
                 <Link to="/support" onClick={() => setMobileOpen(false)} className="font-semibold text-sm py-1">Support</Link>
                 <button onClick={() => { logout(); setMobileOpen(false) }} className="text-left font-semibold text-sm py-1 text-error">Logout</button>

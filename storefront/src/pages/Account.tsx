@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { User, MapPin, Package, LifeBuoy, LogOut, Save } from 'lucide-react'
+import { User, MapPin, Package, LifeBuoy, LogOut, Save, Heart } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { usersApi } from '@/api/endpoints'
 
@@ -60,16 +60,16 @@ export default function Account() {
 
         <div className="flex flex-col gap-4">
           <div>
-            <p className="text-xs font-bold text-on-surface-variant mb-1.5">Full Name</p>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" className="input-field" />
+            <label htmlFor="account-name" className="block text-xs font-bold text-on-surface-variant mb-1.5">Full Name</label>
+            <input id="account-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" className="input-field" />
           </div>
           <div>
-            <p className="text-xs font-bold text-on-surface-variant mb-1.5">Email (optional)</p>
-            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" type="email" className="input-field" />
+            <label htmlFor="account-email" className="block text-xs font-bold text-on-surface-variant mb-1.5">Email (optional)</label>
+            <input id="account-email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" type="email" className="input-field" />
           </div>
           <div>
-            <p className="text-xs font-bold text-on-surface-variant mb-1.5">Mobile Number</p>
-            <input value={user?.phone || ''} disabled className="input-field bg-surface-container-low text-on-surface-variant" />
+            <label htmlFor="account-phone" className="block text-xs font-bold text-on-surface-variant mb-1.5">Mobile Number</label>
+            <input id="account-phone" value={user?.phone || ''} disabled className="input-field bg-surface-container-low text-on-surface-variant" />
           </div>
           <button onClick={handleSave} disabled={saving} className="btn-primary self-start">
             <Save size={15} /> {saving ? 'Saving...' : 'Save Changes'}
@@ -79,6 +79,7 @@ export default function Account() {
 
       <div className="card divide-y divide-outline-variant overflow-hidden">
         <Link to="/orders" className="flex items-center gap-3 px-5 py-4 hover:bg-surface-container-low"><Package size={17} className="text-primary" /> <span className="font-semibold text-sm">My Orders</span></Link>
+        <Link to="/wishlist" className="flex items-center gap-3 px-5 py-4 hover:bg-surface-container-low"><Heart size={17} className="text-primary" /> <span className="font-semibold text-sm">My Wishlist</span></Link>
         <Link to="/addresses" className="flex items-center gap-3 px-5 py-4 hover:bg-surface-container-low"><MapPin size={17} className="text-primary" /> <span className="font-semibold text-sm">My Addresses</span></Link>
         <Link to="/support" className="flex items-center gap-3 px-5 py-4 hover:bg-surface-container-low"><LifeBuoy size={17} className="text-primary" /> <span className="font-semibold text-sm">Help & Support</span></Link>
         <button onClick={() => logout()} className="w-full flex items-center gap-3 px-5 py-4 hover:bg-error-container text-error text-left"><LogOut size={17} /> <span className="font-semibold text-sm">Logout</span></button>

@@ -15,5 +15,7 @@ Thumbs.db
 
 # ─── Secrets (root-level, just in case) ────────────────────────────────────
 .env
+.env.*.local
+.payment-deps/
 *.pem
 *.key

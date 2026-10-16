@@ -31,6 +31,7 @@ export default function Checkout() {
   const [selectedAddressId, setSelectedAddressId] = useState('')
   const [showAddressForm, setShowAddressForm] = useState(false)
   const [placing, setPlacing] = useState(false)
+  const [pendingOrderId, setPendingOrderId] = useState<string | null>(null)
 
   const { data: addresses } = useQuery({
     queryKey: ['addresses'],
@@ -57,7 +58,7 @@ export default function Checkout() {
     )
   }
 
-  if (items.length === 0) {
+  if (items.length === 0 && !pendingOrderId) {
     return (
       <div className="max-w-lg mx-auto px-4 py-20 text-center">
         <p className="font-bold text-lg text-on-surface-deep mb-4">Your cart is empty</p>
@@ -80,11 +81,15 @@ export default function Checkout() {
     }
     setPlacing(true)
     try {
-      const { data: orderRes } = await ordersApi.create({ address_id: selectedAddressId, payment_method: selectedMethod })
-      const order = orderRes.data
+      let orderId = pendingOrderId
+      if (!orderId) {
+        const { data: orderRes } = await ordersApi.create({ address_id: selectedAddressId, payment_method: selectedMethod.toLowerCase() })
+        orderId = orderRes.data.id as string
+        setPendingOrderId(orderId)
+      }
 
       if (ONLINE_METHODS.includes(selectedMethod)) {
-        const result = await startPayment(order.id, { name: user?.name ?? undefined, email: user?.email ?? undefined, phone: user?.phone })
+        const result = await startPayment(orderId, { name: user?.name ?? undefined, email: user?.email ?? undefined, phone: user?.phone })
         if (!result.success) {
           if (result.error && result.error !== PAYMENT_CANCELLED) toast.error(result.error)
           setPlacing(false)
@@ -93,7 +98,7 @@ export default function Checkout() {
       }
 
       await clear()
-      navigate(`/order-success/${order.id}`)
+      navigate(`/order-success/${orderId}`)
     } catch (e: any) {
       const detail = typeof e.response?.data?.detail === 'string' ? e.response.data.detail : e.response?.data?.message
       toast.error(detail || 'Could not place your order. Please try again.')
@@ -165,6 +170,7 @@ export default function Checkout() {
                 <button
                   key={m.id}
                   type="button"
+                  disabled={placing || !!pendingOrderId}
                   onClick={() => setSelectedMethod(m.id)}
                   className={`card flex items-center gap-3 p-4 text-left border-1.5 ${selectedMethod === m.id ? 'border-primary bg-surface-container-low' : 'border-transparent'}`}
                 >

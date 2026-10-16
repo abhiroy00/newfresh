@@ -5,6 +5,8 @@ import { MapPin, Plus, Pencil, Trash2, Star, Home, Briefcase } from 'lucide-reac
 import { usersApi } from '@/api/endpoints'
 import AddressForm from '@/components/address/AddressForm'
 import EmptyState from '@/components/ui/EmptyState'
+import ConfirmDialog from '@/components/ui/ConfirmDialog'
+import ErrorState from '@/components/ui/ErrorState'
 import { useAuthStore } from '@/store/authStore'
 import type { Address } from '@/types'
 
@@ -17,8 +19,9 @@ export default function Addresses() {
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Address | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
-  const { data: addresses, isLoading } = useQuery({
+  const { data: addresses, isLoading, isError, refetch: refetchAddresses } = useQuery({
     queryKey: ['addresses'],
     queryFn: async () => (await usersApi.listAddresses()).data.data as Address[],
     enabled: isAuthenticated,
@@ -33,7 +36,7 @@ export default function Addresses() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this address?')) return
+    setConfirmDeleteId(null)
     setDeletingId(id)
     try {
       await usersApi.deleteAddress(id)
@@ -94,6 +97,8 @@ export default function Addresses() {
         <div className="flex flex-col gap-3">
           {Array.from({ length: 2 }).map((_, i) => <div key={i} className="card h-28 animate-pulse bg-surface-container-low" />)}
         </div>
+      ) : isError ? (
+        <ErrorState subtitle="Couldn't load your addresses." onRetry={() => refetchAddresses()} />
       ) : !addresses || addresses.length === 0 ? (
         !showForm && (
           <EmptyState
@@ -133,7 +138,7 @@ export default function Addresses() {
                       <Pencil size={12} /> Edit
                     </button>
                     <button
-                      onClick={() => handleDelete(addr.id)}
+                      onClick={() => setConfirmDeleteId(addr.id)}
                       disabled={deletingId === addr.id}
                       className="flex items-center gap-1 text-xs font-semibold text-error"
                     >
@@ -146,6 +151,17 @@ export default function Addresses() {
           })}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!confirmDeleteId}
+        title="Delete this address?"
+        message="This can't be undone."
+        confirmLabel="Yes, Delete"
+        danger
+        loading={!!deletingId}
+        onConfirm={() => confirmDeleteId && handleDelete(confirmDeleteId)}
+        onCancel={() => setConfirmDeleteId(null)}
+      />
     </div>
   )
 }

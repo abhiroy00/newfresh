@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast'
 import Layout from '@/components/layout/Layout'
 import { useAuthStore } from '@/store/authStore'
 import { useCartStore } from '@/store/cartStore'
+import { useWishlistStore } from '@/store/wishlistStore'
 
 import Home from '@/pages/Home'
 import Products from '@/pages/Products'
@@ -14,23 +15,29 @@ import Checkout from '@/pages/Checkout'
 import OrderSuccess from '@/pages/OrderSuccess'
 import Orders from '@/pages/Orders'
 import OrderDetail from '@/pages/OrderDetail'
+import Wishlist from '@/pages/Wishlist'
 import Account from '@/pages/Account'
 import Addresses from '@/pages/Addresses'
 import Support from '@/pages/Support'
 import Privacy from '@/pages/Privacy'
 import Terms from '@/pages/Terms'
+import RefundPolicy from '@/pages/RefundPolicy'
+import About from '@/pages/About'
+import Contact from '@/pages/Contact'
 import NotFound from '@/pages/NotFound'
 
 export default function App() {
   const hydrate = useAuthStore((s) => s.hydrate)
   const fetchCart = useCartStore((s) => s.fetchCart)
+  const fetchWishlist = useWishlistStore((s) => s.fetchWishlist)
 
   useEffect(() => {
     (async () => {
       await hydrate()
       fetchCart()
+      fetchWishlist()
     })()
-  }, [hydrate, fetchCart])
+  }, [hydrate, fetchCart, fetchWishlist])
 
   return (
     <BrowserRouter>
@@ -46,11 +53,15 @@ export default function App() {
           <Route path="/order-success/:id" element={<OrderSuccess />} />
           <Route path="/orders" element={<Orders />} />
           <Route path="/orders/:id" element={<OrderDetail />} />
+          <Route path="/wishlist" element={<Wishlist />} />
           <Route path="/account" element={<Account />} />
           <Route path="/addresses" element={<Addresses />} />
           <Route path="/support" element={<Support />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/terms" element={<Terms />} />
+          <Route path="/refund-policy" element={<RefundPolicy />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/contact" element={<Contact />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

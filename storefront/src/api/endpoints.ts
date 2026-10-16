@@ -52,6 +52,12 @@ export const paymentsApi = {
     api.post('/payments/verify', data),
 }
 
+export const wishlistApi = {
+  list: () => api.get('/wishlist'),
+  add: (productId: string) => api.post(`/wishlist/${productId}`),
+  remove: (productId: string) => api.delete(`/wishlist/${productId}`),
+}
+
 export const supportApi = {
   listTickets: () => api.get('/support/tickets'),
   getTicket: (id: string) => api.get(`/support/tickets/${id}`),

@@ -5,13 +5,14 @@ import { ordersApi } from '@/api/endpoints'
 import { useAuthStore } from '@/store/authStore'
 import { formatPrice, formatDate } from '@/lib/format'
 import EmptyState from '@/components/ui/EmptyState'
+import ErrorState from '@/components/ui/ErrorState'
 import type { Order } from '@/types'
 
 const STATUS_STYLE: Record<string, string> = {
-  PENDING: 'bg-yellow-100 text-yellow-800',
-  CONFIRMED: 'bg-blue-100 text-blue-800',
-  PACKED: 'bg-blue-100 text-blue-800',
-  OUT_FOR_DELIVERY: 'bg-orange-100 text-orange-800',
+  PENDING: 'bg-surface-container-high text-on-surface-variant',
+  CONFIRMED: 'bg-primary-fixed text-primary',
+  PACKED: 'bg-primary-fixed text-primary',
+  OUT_FOR_DELIVERY: 'bg-accent-orange/15 text-accent-orange',
   DELIVERED: 'bg-success-container text-success',
   CANCELLED: 'bg-error-container text-error',
 }
@@ -20,7 +21,7 @@ export default function Orders() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const openLogin = useAuthStore((s) => s.openLogin)
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['orders'],
     queryFn: async () => (await ordersApi.list({ per_page: 30 })).data.data as Order[],
     enabled: isAuthenticated,
@@ -42,6 +43,8 @@ export default function Orders() {
         <div className="flex flex-col gap-3">
           {Array.from({ length: 3 }).map((_, i) => <div key={i} className="card h-24 animate-pulse bg-surface-container-low" />)}
         </div>
+      ) : isError ? (
+        <ErrorState subtitle="Couldn't load your orders." onRetry={() => refetch()} />
       ) : !data || data.length === 0 ? (
         <EmptyState icon={Package} title="No orders yet" subtitle="Your placed orders will show up here." action={<Link to="/products" className="btn-primary mt-2">Start Shopping</Link>} />
       ) : (
@@ -54,7 +57,7 @@ export default function Orders() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
                   <span className="font-bold text-sm text-on-surface-deep">#{order.order_number}</span>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${STATUS_STYLE[order.status] || 'bg-gray-100 text-gray-700'}`}>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${STATUS_STYLE[order.status] || 'bg-surface-container-high text-on-surface-variant'}`}>
                     {order.status.replace(/_/g, ' ')}
                   </span>
                 </div>

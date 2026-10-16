@@ -191,6 +191,10 @@ async function openRazorpayWeb(options: RazorpayOptions): Promise<PaymentResult>
           },
         },
       });
+      rzp.on('payment.failed', (response: any) => {
+        resolve({ success: false, error: response?.error?.description || 'Payment failed. Please try again.' });
+        rzp.close();
+      });
       rzp.open();
     };
 

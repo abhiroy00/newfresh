@@ -29,6 +29,8 @@ async def api_verify_payment(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    if not all((payload.order_id, payload.razorpay_order_id, payload.razorpay_payment_id, payload.razorpay_signature)):
+        raise HTTPException(status_code=400, detail="Missing payment verification fields")
     order = await verify_payment(
         payload.razorpay_order_id, payload.razorpay_payment_id,
         payload.razorpay_signature, payload.order_id, current_user.id, db,
@@ -70,7 +72,8 @@ async def api_payment_webhook(request: Request, db: AsyncSession = Depends(get_d
             order = result.scalar_one_or_none()
             if order and order.payment_status != PaymentStatus.PAID:
                 order.payment_status = PaymentStatus.PAID
-                order.status = OrderStatus.CONFIRMED
+                if order.status == OrderStatus.PENDING:
+                    order.status = OrderStatus.CONFIRMED
                 order.razorpay_payment_id = rzp_payment_id
                 await db.flush()
     return {"status": "ok"}

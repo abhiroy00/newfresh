@@ -6,6 +6,7 @@ import { productsApi } from '@/api/endpoints'
 import ProductCard from '@/components/product/ProductCard'
 import ProductSkeleton from '@/components/ui/ProductSkeleton'
 import EmptyState from '@/components/ui/EmptyState'
+import ErrorState from '@/components/ui/ErrorState'
 import { useDebounce } from '@/hooks/useDebounce'
 import type { Category, Product } from '@/types'
 
@@ -146,6 +147,8 @@ export default function Products() {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {Array.from({ length: 12 }).map((_, i) => <ProductSkeleton key={i} />)}
             </div>
+          ) : productsQuery.isError ? (
+            <ErrorState subtitle="Couldn't load products." onRetry={() => productsQuery.refetch()} />
           ) : productsQuery.data && productsQuery.data.data.length > 0 ? (
             <>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">

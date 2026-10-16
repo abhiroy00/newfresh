@@ -138,10 +138,12 @@ export default function AddressForm({
 }
 
 function Field({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
+  const id = `address-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}`
   return (
     <div>
-      <p className="text-xs font-bold text-on-surface-variant mb-1.5">{label}</p>
+      <label htmlFor={id} className="block text-xs font-bold text-on-surface-variant mb-1.5">{label}</label>
       <input
+        id={id}
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}

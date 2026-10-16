@@ -10,8 +10,10 @@ import { productsApi } from '@/api/endpoints'
 import { formatPrice } from '@/lib/format'
 import QuantityStepper from '@/components/ui/QuantityStepper'
 import MarkdownText from '@/components/ui/MarkdownText'
+import ErrorState from '@/components/ui/ErrorState'
 import { useCartStore } from '@/store/cartStore'
 import { useAuthStore } from '@/store/authStore'
+import { useWishlistStore } from '@/store/wishlistStore'
 import type { Product } from '@/types'
 
 const NUTRIENT_ICONS: Record<string, string> = {
@@ -38,12 +40,18 @@ export default function ProductDetail() {
   const addItem = useCartStore((s) => s.addItem)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const openLogin = useAuthStore((s) => s.openLogin)
+  const toggleWishlist = useWishlistStore((s) => s.toggle)
+  const wishlisted = useWishlistStore((s) => s.productIds.has(id || ''))
 
-  const { data: product, isLoading } = useQuery({
+  const { data: product, isLoading, isError, refetch } = useQuery({
     queryKey: ['product', id],
     queryFn: async () => (await productsApi.detail(id!)).data.data as Product,
     enabled: !!id,
   })
+
+  if (isError) {
+    return <ErrorState subtitle="Couldn't load this product." onRetry={() => refetch()} />
+  }
 
   if (isLoading || !product) {
     return (
@@ -85,6 +93,15 @@ export default function ProductDetail() {
     } finally {
       setAdding(false)
     }
+  }
+
+  const handleToggleWishlist = () => {
+    if (!isAuthenticated) {
+      toast('Please login to save items to your wishlist')
+      openLogin()
+      return
+    }
+    toggleWishlist(product.id)
   }
 
   return (
@@ -177,6 +194,13 @@ export default function ProductDetail() {
             >
               {added ? <><Check size={18} /> Added!</> : <><ShoppingCart size={18} /> Add to Cart — {formatPrice(product.price * quantity)}</>}
             </button>
+            <button
+              onClick={handleToggleWishlist}
+              className="w-14 shrink-0 rounded-full border-1.5 border-outline-variant flex items-center justify-center hover:scale-105 active:scale-90 transition-transform"
+              aria-label={wishlisted ? 'Remove from wishlist' : 'Save to wishlist'}
+            >
+              <Heart size={20} className={wishlisted ? 'text-error' : 'text-outline'} fill={wishlisted ? 'currentColor' : 'none'} />
+            </button>
           </div>
         </div>
       </div>
@@ -190,7 +214,7 @@ export default function ProductDetail() {
 
       {/* Health Benefits */}
       {product.health_benefits && (
-        <Section icon={Heart} iconColor="text-error" title="Health Benefits" cardClass="bg-[#FFF5F5] border-l-4 border-error">
+        <Section icon={Heart} iconColor="text-error" title="Health Benefits" cardClass="bg-error-container border-l-4 border-error">
           <MarkdownText>{product.health_benefits}</MarkdownText>
         </Section>
       )}

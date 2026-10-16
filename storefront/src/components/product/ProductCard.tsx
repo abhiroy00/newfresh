@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Leaf, Plus, ShoppingCart, Check } from 'lucide-react'
+import { Leaf, Plus, ShoppingCart, Check, Heart } from 'lucide-react'
 import toast from 'react-hot-toast'
 import type { Product } from '@/types'
 import { formatPrice } from '@/lib/format'
 import { useCartStore } from '@/store/cartStore'
 import { useAuthStore } from '@/store/authStore'
+import { useWishlistStore } from '@/store/wishlistStore'
 
 export default function ProductCard({ product }: { product: Product }) {
   const [adding, setAdding] = useState(false)
@@ -13,6 +14,19 @@ export default function ProductCard({ product }: { product: Product }) {
   const addItem = useCartStore((s) => s.addItem)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const openLogin = useAuthStore((s) => s.openLogin)
+  const wishlisted = useWishlistStore((s) => s.productIds.has(product.id))
+  const toggleWishlist = useWishlistStore((s) => s.toggle)
+
+  const handleToggleWishlist = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!isAuthenticated) {
+      toast('Please login to save items to your wishlist')
+      openLogin()
+      return
+    }
+    toggleWishlist(product.id)
+  }
 
   const discount =
     product.original_price && product.original_price > product.price
@@ -77,11 +91,21 @@ export default function ProductCard({ product }: { product: Product }) {
           )}
         </div>
 
-        {discount && (
-          <span className="absolute top-2 right-2 text-[10px] font-bold text-error bg-error-container px-2 py-0.5 rounded-full">
-            {discount}% OFF
-          </span>
-        )}
+        <div className="absolute top-2 right-2 flex flex-col gap-1.5 items-end">
+          <button
+            type="button"
+            onClick={handleToggleWishlist}
+            className="w-7 h-7 rounded-full bg-white/90 backdrop-blur flex items-center justify-center shadow-sm hover:scale-110 active:scale-90 transition-transform"
+            aria-label={wishlisted ? 'Remove from wishlist' : 'Save to wishlist'}
+          >
+            <Heart size={14} className={wishlisted ? 'text-error' : 'text-outline'} fill={wishlisted ? 'currentColor' : 'none'} />
+          </button>
+          {discount && (
+            <span className="text-[10px] font-bold text-error bg-error-container px-2 py-0.5 rounded-full">
+              {discount}% OFF
+            </span>
+          )}
+        </div>
 
         {outOfStock && (
           <div className="absolute inset-0 bg-white/70 flex items-center justify-center">

@@ -41,9 +41,7 @@ export default function CartDrawer() {
             </div>
             <p className="font-bold text-on-surface-deep">Your cart is empty</p>
             <p className="text-sm text-on-surface-variant">Add fresh produce to get started</p>
-            <button onClick={close} className="btn-primary mt-2">
-              <Link to="/products">Start Shopping</Link>
-            </button>
+            <Link to="/products" onClick={close} className="btn-primary mt-2">Start Shopping</Link>
           </div>
         ) : (
           <>

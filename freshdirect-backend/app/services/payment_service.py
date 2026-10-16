@@ -43,13 +43,15 @@ def _create_razorpay_order_sync(amount_paise: int, currency: str, receipt: str, 
 
 async def create_razorpay_order(order_id: str, user_id: str, db: AsyncSession) -> dict:
     result = await db.execute(
-        select(Order).where(Order.id == order_id, Order.user_id == user_id)
+        select(Order).where(Order.id == order_id, Order.user_id == user_id).with_for_update()
     )
     order = result.scalar_one_or_none()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     if order.payment_status == PaymentStatus.PAID:
         raise HTTPException(status_code=400, detail="Order already paid")
+    if order.status != OrderStatus.PENDING:
+        raise HTTPException(status_code=400, detail="Order is not awaiting payment")
 
     # Fail fast and legibly when the gateway was never configured, instead of
     # burning a network round-trip to get back an opaque "Authentication failed".
@@ -71,6 +73,16 @@ async def create_razorpay_order(order_id: str, user_id: str, db: AsyncSession) -
             detail=f"Order total must be at least INR {MIN_AMOUNT_PAISE / 100:.0f} to pay online.",
         )
 
+    if order.razorpay_order_id:
+        return {
+            "razorpay_order_id": order.razorpay_order_id,
+            "amount": amount_paise,
+            "currency": settings.RAZORPAY_CURRENCY,
+            "key_id": settings.RAZORPAY_KEY_ID,
+            "order_id": order.id,
+            "order_number": order.order_number,
+        }
+
     # Offload synchronous Razorpay HTTP call to a thread so it doesn't block
     # the async event loop (and to avoid scary "Sync call in async" stack traces
     # in production servers like uvicorn/gunicorn with multiple workers).
@@ -84,14 +96,14 @@ async def create_razorpay_order(order_id: str, user_id: str, db: AsyncSession) -
         )
     except RAZORPAY_ERRORS as e:
         # Bad credentials, a rejected payload, or Razorpay being down are all
-        # upstream faults — surface them as 502 with the real reason logged,
+        # upstream faults — return an error with the real reason logged,
         # rather than an unhandled exception the client sees as a bare 500.
         logger.exception(
             "Razorpay order creation failed for order %s (amount=%s paise): %r",
             order.id, amount_paise, e,
         )
         raise HTTPException(
-            status_code=502,
+            status_code=401 if "authentication" in str(e).lower() else 500,
             detail="Could not reach the payment gateway. Please try again or use Cash on Delivery.",
         )
     except Exception as e:
@@ -99,7 +111,7 @@ async def create_razorpay_order(order_id: str, user_id: str, db: AsyncSession) -
             "Unexpected error creating Razorpay order for order %s: %r", order.id, e
         )
         raise HTTPException(
-            status_code=502,
+            status_code=500,
             detail="Could not start the payment. Please try again or use Cash on Delivery.",
         )
 
@@ -124,11 +136,11 @@ async def verify_payment(
     user_id: str,
     db: AsyncSession,
 ) -> Order:
-    if not verify_razorpay_signature(razorpay_order_id, razorpay_payment_id, razorpay_signature):
-        raise HTTPException(status_code=400, detail="Invalid payment signature")
+    if not settings.RAZORPAY_KEY_SECRET:
+        raise HTTPException(status_code=503, detail="Payment verification is unavailable")
 
     result = await db.execute(
-        select(Order).where(Order.id == order_id, Order.user_id == user_id)
+        select(Order).where(Order.id == order_id, Order.user_id == user_id).with_for_update()
     )
     order = result.scalar_one_or_none()
     if not order:
@@ -138,10 +150,17 @@ async def verify_payment(
     # valid signature from one paid order could mark a different order paid.
     if order.razorpay_order_id != razorpay_order_id:
         raise HTTPException(status_code=400, detail="Payment does not match this order")
+    if not verify_razorpay_signature(order.razorpay_order_id, razorpay_payment_id, razorpay_signature):
+        raise HTTPException(status_code=400, detail="Invalid payment signature")
+    if order.payment_status == PaymentStatus.PAID:
+        if order.razorpay_payment_id != razorpay_payment_id:
+            raise HTTPException(status_code=400, detail="Order already paid with another payment")
+        return order
 
     order.razorpay_payment_id = razorpay_payment_id
     order.razorpay_signature = razorpay_signature
     order.payment_status = PaymentStatus.PAID
-    order.status = OrderStatus.CONFIRMED
+    if order.status == OrderStatus.PENDING:
+        order.status = OrderStatus.CONFIRMED
     await db.flush()
     return order
