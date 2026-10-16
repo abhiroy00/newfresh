@@ -12,9 +12,16 @@ interface AuthState {
   hydrate: () => Promise<void>
   sendOtp: (phone: string) => Promise<void>
   verifyOtp: (phone: string, otp: string) => Promise<void>
+  loginEmail: (email: string, password: string) => Promise<void>
+  signupEmail: (name: string | undefined, email: string, password: string) => Promise<void>
   logout: () => Promise<void>
   refreshMe: () => Promise<void>
   setUser: (user: User) => void
+}
+
+function storeTokens(payload: { access_token: string; refresh_token: string }) {
+  localStorage.setItem('auth_token', payload.access_token)
+  localStorage.setItem('refresh_token', payload.refresh_token)
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -55,11 +62,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   verifyOtp: async (phone: string, otp: string) => {
     const { data } = await authApi.verifyOtp(phone, otp)
-    const payload = data.data
-    localStorage.setItem('auth_token', payload.access_token)
-    localStorage.setItem('refresh_token', payload.refresh_token)
+    storeTokens(data.data)
     set({ isAuthenticated: true, loginModalOpen: false })
     // The token response carries no user object — fetch the profile separately.
+    await get().refreshMe()
+  },
+
+  loginEmail: async (email: string, password: string) => {
+    const { data } = await authApi.loginEmail(email, password)
+    storeTokens(data.data)
+    set({ isAuthenticated: true, loginModalOpen: false })
+    await get().refreshMe()
+  },
+
+  signupEmail: async (name: string | undefined, email: string, password: string) => {
+    const { data } = await authApi.signupEmail({ name, email, password })
+    storeTokens(data.data)
+    set({ isAuthenticated: true, loginModalOpen: false })
     await get().refreshMe()
   },
 

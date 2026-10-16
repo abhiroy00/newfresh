@@ -10,6 +10,7 @@ class UserOut(BaseModel):
     email: Optional[str] = None
     profile_photo_url: Optional[str] = None
     is_admin: bool = False
+    has_password: bool = False
     created_at: datetime
 
     model_config = {"from_attributes": True}

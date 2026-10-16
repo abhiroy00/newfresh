@@ -2,9 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.core.database import get_db
+from app.core.security import pwd_context
 from app.api.v1.deps import get_current_user
 from app.models.user import User, Address
 from app.schemas.user import UserOut, UserUpdate, AddressCreate, AddressOut, AddressUpdate
+from app.schemas.auth import SetPasswordRequest
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -21,6 +23,12 @@ async def update_me(payload: UserUpdate, current_user: User = Depends(get_curren
             raise HTTPException(409, "Email already in use")
     for k, v in updates.items():
         setattr(current_user, k, v)
+    await db.flush()
+    return {"success": True, "data": UserOut.model_validate(current_user)}
+
+@router.post("/me/set-password")
+async def set_password(payload: SetPasswordRequest, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    current_user.password_hash = pwd_context.hash(payload.password)
     await db.flush()
     return {"success": True, "data": UserOut.model_validate(current_user)}
 

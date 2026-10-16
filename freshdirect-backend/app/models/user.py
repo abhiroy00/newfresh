@@ -53,6 +53,10 @@ class User(Base):
         "WishlistItem", back_populates="user", cascade="all, delete-orphan"
     )
 
+    @property
+    def has_password(self) -> bool:
+        return bool(self.password_hash)
+
     def __repr__(self) -> str:
         return f"<User id={self.id} phone={self.phone}>"
 

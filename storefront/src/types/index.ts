@@ -85,6 +85,7 @@ export interface User {
   name?: string | null
   email?: string | null
   phone: string
+  has_password: boolean
 }
 
 export type OrderStatus = 'PENDING' | 'CONFIRMED' | 'PACKED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED'

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { User, MapPin, Package, LifeBuoy, LogOut, Save, Heart } from 'lucide-react'
+import { User, MapPin, Package, LifeBuoy, LogOut, Save, Heart, Lock } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { usersApi } from '@/api/endpoints'
 
@@ -15,6 +15,10 @@ export default function Account() {
   const [name, setName] = useState(user?.name || '')
   const [email, setEmail] = useState(user?.email || '')
   const [saving, setSaving] = useState(false)
+
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [settingPassword, setSettingPassword] = useState(false)
 
   useEffect(() => {
     setName(user?.name || '')
@@ -40,6 +44,29 @@ export default function Account() {
       toast.error(e?.response?.data?.detail || 'Could not update profile')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleSetPassword = async () => {
+    if (newPassword.length < 8) {
+      toast.error('Password must be at least 8 characters')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error('Passwords do not match')
+      return
+    }
+    setSettingPassword(true)
+    try {
+      const { data } = await usersApi.setPassword(newPassword)
+      setUser(data.data)
+      setNewPassword('')
+      setConfirmPassword('')
+      toast.success(user?.has_password ? 'Password updated' : 'Password set — you can now also log in with email')
+    } catch (e: any) {
+      toast.error(e?.response?.data?.detail || 'Could not set password')
+    } finally {
+      setSettingPassword(false)
     }
   }
 
@@ -73,6 +100,31 @@ export default function Account() {
           </div>
           <button onClick={handleSave} disabled={saving} className="btn-primary self-start">
             <Save size={15} /> {saving ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
+      </div>
+
+      <div className="card p-5 mb-6">
+        <div className="flex items-center gap-2 mb-1">
+          <Lock size={16} className="text-primary" />
+          <h2 className="font-bold text-on-surface-deep">{user?.has_password ? 'Update Password' : 'Set a Password'}</h2>
+        </div>
+        <p className="text-sm text-on-surface-variant mb-4">
+          {user?.has_password
+            ? 'Change the password you use to log in with email.'
+            : 'Add a password so you can also log in with email, not just phone OTP.'}
+        </p>
+        <div className="flex flex-col gap-4">
+          <div>
+            <label htmlFor="account-new-password" className="block text-xs font-bold text-on-surface-variant mb-1.5">New Password</label>
+            <input id="account-new-password" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Min. 8 characters" className="input-field" />
+          </div>
+          <div>
+            <label htmlFor="account-confirm-password" className="block text-xs font-bold text-on-surface-variant mb-1.5">Confirm Password</label>
+            <input id="account-confirm-password" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Re-enter password" className="input-field" />
+          </div>
+          <button onClick={handleSetPassword} disabled={settingPassword} className="btn-primary self-start">
+            <Lock size={15} /> {settingPassword ? 'Saving...' : user?.has_password ? 'Update Password' : 'Set Password'}
           </button>
         </div>
       </div>

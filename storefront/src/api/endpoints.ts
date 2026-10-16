@@ -3,6 +3,8 @@ import api from './client'
 export const authApi = {
   sendOtp: (phone: string) => api.post('/auth/send-otp', { phone }),
   verifyOtp: (phone: string, otp: string) => api.post('/auth/verify-otp', { phone, otp }),
+  loginEmail: (email: string, password: string) => api.post('/auth/login-email', { email, password }),
+  signupEmail: (data: { name?: string; email: string; password: string }) => api.post('/auth/signup-email', data),
   refresh: (refresh_token: string) => api.post('/auth/refresh', { refresh_token }),
   logout: (refresh_token?: string | null) => api.post('/auth/logout', refresh_token ? { refresh_token } : {}),
 }
@@ -10,6 +12,7 @@ export const authApi = {
 export const usersApi = {
   me: () => api.get('/users/me'),
   updateMe: (data: { name?: string; email?: string }) => api.patch('/users/me', data),
+  setPassword: (password: string) => api.post('/users/me/set-password', { password }),
   listAddresses: () => api.get('/users/addresses'),
   createAddress: (data: {
     label?: string; full_name: string; phone: string

@@ -6,8 +6,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.redis_client import blacklist_token
 from app.core.security import decode_token
-from app.schemas.auth import SendOTPRequest, VerifyOTPRequest, RefreshRequest, LogoutRequest
-from app.services.auth_service import send_otp, verify_otp_and_login, refresh_access_token, revoke_refresh_token
+from app.schemas.auth import (
+    SendOTPRequest, VerifyOTPRequest, RefreshRequest, LogoutRequest,
+    EmailLoginRequest, EmailSignupRequest,
+)
+from app.services.auth_service import (
+    send_otp, verify_otp_and_login, refresh_access_token, revoke_refresh_token,
+    login_with_email, signup_with_email,
+)
 from app.api.v1.deps import get_current_user, security
 from app.models.user import User
 
@@ -26,6 +32,16 @@ async def api_send_otp(payload: SendOTPRequest):
 async def api_verify_otp(payload: VerifyOTPRequest, db: AsyncSession = Depends(get_db)):
     token = await verify_otp_and_login(payload, db)
     return {"success": True, "message": "Login successful", "data": token}
+
+@router.post("/login-email")
+async def api_login_email(payload: EmailLoginRequest, db: AsyncSession = Depends(get_db)):
+    token = await login_with_email(payload, db)
+    return {"success": True, "message": "Login successful", "data": token}
+
+@router.post("/signup-email")
+async def api_signup_email(payload: EmailSignupRequest, db: AsyncSession = Depends(get_db)):
+    token = await signup_with_email(payload, db)
+    return {"success": True, "message": "Account created", "data": token}
 
 @router.post("/refresh")
 async def api_refresh(payload: RefreshRequest):

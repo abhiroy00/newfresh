@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -7,10 +8,20 @@ from twilio.rest import Client
 from twilio.base.exceptions import TwilioRestException
 
 from app.models.user import User
-from app.core.security import generate_otp, create_access_token, create_refresh_token, decode_token
+from app.core.security import generate_otp, create_access_token, create_refresh_token, decode_token, pwd_context
 from app.core.redis_client import store_otp, delete_otp, rate_limit_exceeded, blacklist_token, is_token_blacklisted
 from app.core.config import settings
-from app.schemas.auth import SendOTPRequest, VerifyOTPRequest, TokenResponse
+from app.schemas.auth import (
+    SendOTPRequest, VerifyOTPRequest, TokenResponse, EmailLoginRequest, EmailSignupRequest,
+)
+
+
+def _issue_token_pair(user_id: str) -> TokenResponse:
+    return TokenResponse(
+        access_token=create_access_token(subject=user_id),
+        refresh_token=create_refresh_token(subject=user_id),
+        expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    )
 
 
 def _twilio_verify():
@@ -114,14 +125,61 @@ async def verify_otp_and_login(
             detail="This account has been deactivated. Please contact support.",
         )
 
-    access_token = create_access_token(subject=user.id)
-    refresh_token = create_refresh_token(subject=user.id)
+    return _issue_token_pair(user.id)
 
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+
+async def login_with_email(payload: EmailLoginRequest, db: AsyncSession) -> TokenResponse:
+    result = await db.execute(select(User).where(User.email == payload.email))
+    user = result.scalar_one_or_none()
+
+    # Same generic error whether the email doesn't exist or the password is
+    # wrong — don't reveal which, and don't let a passwordless (OTP-only)
+    # account be bruteforced via this path.
+    invalid = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
+    if not user or not user.password_hash:
+        raise invalid
+    if not pwd_context.verify(payload.password, user.password_hash):
+        raise invalid
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This account has been deactivated. Please contact support.",
+        )
+
+    return _issue_token_pair(user.id)
+
+
+async def signup_with_email(payload: EmailSignupRequest, db: AsyncSession) -> TokenResponse:
+    result = await db.execute(select(User).where(User.email == payload.email))
+    existing = result.scalar_one_or_none()
+    if existing:
+        if existing.password_hash:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already in use")
+        # An OTP-created account already has this email on file (e.g. set from
+        # Account settings) but no password — don't silently attach a password
+        # to it here, since that would let anyone who knows the email take over
+        # the account without proving phone ownership. They must log in with
+        # phone OTP and set a password from their account instead.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This email is linked to an existing account. Log in with phone OTP and set a password from My Account instead.",
+        )
+
+    # Phone is required (and unique, String(15)) on the model but unknown at
+    # email-signup time — a short placeholder keeps the column's constraints
+    # satisfied. There's no verified-phone-later flow yet, so SMS-dependent
+    # features (rider call button, order SMS updates) won't apply to these
+    # accounts until that's built.
+    user = User(
+        email=payload.email,
+        name=payload.name,
+        phone=f"e_{uuid.uuid4().hex[:13]}",
+        password_hash=pwd_context.hash(payload.password),
     )
+    db.add(user)
+    await db.flush()
+
+    return _issue_token_pair(user.id)
 
 
 async def refresh_access_token(refresh_token: str) -> TokenResponse:
