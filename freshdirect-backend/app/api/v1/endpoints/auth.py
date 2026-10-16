@@ -6,8 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.redis_client import blacklist_token
 from app.core.security import decode_token
-from app.schemas.auth import SendOTPRequest, VerifyOTPRequest, RefreshRequest
-from app.services.auth_service import send_otp, verify_otp_and_login, refresh_access_token
+from app.schemas.auth import SendOTPRequest, VerifyOTPRequest, RefreshRequest, LogoutRequest
+from app.services.auth_service import send_otp, verify_otp_and_login, refresh_access_token, revoke_refresh_token
 from app.api.v1.deps import get_current_user, security
 from app.models.user import User
 
@@ -34,13 +34,20 @@ async def api_refresh(payload: RefreshRequest):
 
 @router.post("/logout")
 async def api_logout(
+    payload: LogoutRequest | None = None,
     current_user: User = Depends(get_current_user),
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ):
     token = credentials.credentials
-    payload = decode_token(token)
-    jti = payload.get("jti", token[-16:])
-    exp = payload.get("exp")
+    access_payload = decode_token(token)
+    jti = access_payload.get("jti", token[-16:])
+    exp = access_payload.get("exp")
     ttl = max(int(exp - datetime.now(timezone.utc).timestamp()), 1) if exp else 1
     await blacklist_token(jti, ttl)
+
+    # Also revoke the refresh token so a cached/leaked copy (or one resurrected
+    # by an in-flight token-refresh racing this logout) can't mint new sessions.
+    if payload and payload.refresh_token:
+        await revoke_refresh_token(payload.refresh_token)
+
     return {"success": True, "message": "Logged out"}

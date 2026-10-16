@@ -65,7 +65,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logout: async () => {
     try {
-      await authApi.logout()
+      // Send the refresh token so the backend can revoke it too — otherwise
+      // a cached/leaked copy (or one resurrected by a racing token-refresh)
+      // can silently mint a new session after the user has logged out.
+      await authApi.logout(localStorage.getItem('refresh_token'))
     } catch {
       // Best-effort — clear local session regardless of server response.
     }

@@ -24,6 +24,12 @@ api.interceptors.response.use(
       if (refreshToken) {
         try {
           const { data } = await axios.post(`${BASE_URL}/auth/refresh`, { refresh_token: refreshToken })
+          // The user may have logged out while this refresh was in flight —
+          // don't let a late-arriving refresh resurrect a session they just
+          // signed out of.
+          if (!localStorage.getItem('refresh_token')) {
+            return Promise.reject(error)
+          }
           localStorage.setItem('auth_token', data.data.access_token)
           localStorage.setItem('refresh_token', data.data.refresh_token)
           original.headers.Authorization = `Bearer ${data.data.access_token}`

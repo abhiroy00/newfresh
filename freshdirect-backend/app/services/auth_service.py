@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from fastapi import HTTPException, status
@@ -7,7 +8,7 @@ from twilio.base.exceptions import TwilioRestException
 
 from app.models.user import User
 from app.core.security import generate_otp, create_access_token, create_refresh_token, decode_token
-from app.core.redis_client import store_otp, delete_otp, rate_limit_exceeded
+from app.core.redis_client import store_otp, delete_otp, rate_limit_exceeded, blacklist_token, is_token_blacklisted
 from app.core.config import settings
 from app.schemas.auth import SendOTPRequest, VerifyOTPRequest, TokenResponse
 
@@ -135,6 +136,13 @@ async def refresh_access_token(refresh_token: str) -> TokenResponse:
             detail="Invalid refresh token",
         )
 
+    jti = payload.get("jti", refresh_token[-16:])
+    if await is_token_blacklisted(jti):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token has been revoked",
+        )
+
     new_access = create_access_token(subject=user_id)
     new_refresh = create_refresh_token(subject=user_id)
 
@@ -143,3 +151,18 @@ async def refresh_access_token(refresh_token: str) -> TokenResponse:
         refresh_token=new_refresh,
         expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
+
+
+async def revoke_refresh_token(refresh_token: str) -> None:
+    """Blacklist a refresh token on logout so a leaked/cached copy can't
+    silently mint new sessions after the user has signed out."""
+    try:
+        payload = decode_token(refresh_token)
+        if payload.get("type") != "refresh":
+            return
+        exp = payload.get("exp")
+    except Exception:
+        return
+    jti = payload.get("jti", refresh_token[-16:])
+    ttl = max(int(exp - datetime.now(timezone.utc).timestamp()), 1) if exp else 1
+    await blacklist_token(jti, ttl)

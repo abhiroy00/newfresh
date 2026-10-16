@@ -4,7 +4,7 @@ export const authApi = {
   sendOtp: (phone: string) => api.post('/auth/send-otp', { phone }),
   verifyOtp: (phone: string, otp: string) => api.post('/auth/verify-otp', { phone, otp }),
   refresh: (refresh_token: string) => api.post('/auth/refresh', { refresh_token }),
-  logout: () => api.post('/auth/logout'),
+  logout: (refresh_token?: string | null) => api.post('/auth/logout', refresh_token ? { refresh_token } : {}),
 }
 
 export const usersApi = {
