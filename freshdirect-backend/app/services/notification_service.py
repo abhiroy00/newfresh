@@ -1,28 +1,12 @@
+import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.notification import FCMToken
-from app.core.config import settings
 import logging
 
 logger = logging.getLogger(__name__)
 
-_firebase_initialized = False
-
-
-def _init_firebase():
-    global _firebase_initialized
-    if _firebase_initialized:
-        return
-    try:
-        import firebase_admin
-        from firebase_admin import credentials
-        import os
-        if os.path.exists(settings.FIREBASE_CREDENTIALS_PATH):
-            cred = credentials.Certificate(settings.FIREBASE_CREDENTIALS_PATH)
-            firebase_admin.initialize_app(cred)
-            _firebase_initialized = True
-    except Exception as e:
-        logger.warning(f"Firebase init failed: {e}")
+EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send"
 
 
 async def register_fcm_token(user_id: str, token: str, device_type: str, db: AsyncSession) -> None:
@@ -47,27 +31,46 @@ async def register_fcm_token(user_id: str, token: str, device_type: str, db: Asy
 
 
 async def send_push_notification(user_id: str, title: str, body: str, data: dict = None, db: AsyncSession = None):
-    _init_firebase()
-    if not _firebase_initialized:
-        logger.warning("Firebase not initialized, skipping push notification")
+    """Send a push notification to all of a user's registered devices via Expo's push service."""
+    result = await db.execute(
+        select(FCMToken).where(FCMToken.user_id == user_id, FCMToken.is_active)
+    )
+    tokens = [t.token for t in result.scalars().all()]
+    if not tokens:
         return
 
-    try:
-        from firebase_admin import messaging
-        # Get active tokens for user
-        result = await db.execute(
-            select(FCMToken).where(FCMToken.user_id == user_id, FCMToken.is_active)
-        )
-        tokens = [t.token for t in result.scalars().all()]
-        if not tokens:
-            return
+    messages = [
+        {
+            "to": token,
+            "title": title,
+            "body": body,
+            "data": data or {},
+            "sound": "default",
+            "channelId": "default",
+        }
+        for token in tokens
+    ]
 
-        message = messaging.MulticastMessage(
-            notification=messaging.Notification(title=title, body=body),
-            data=data or {},
-            tokens=tokens,
-        )
-        response = messaging.send_each_for_multicast(message)
-        logger.info(f"Push sent to {user_id}: {response.success_count} success, {response.failure_count} failed")
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.post(EXPO_PUSH_URL, json=messages)
+            response.raise_for_status()
+            receipts = response.json().get("data", [])
+
+        # Deactivate tokens Expo reports as no longer registered
+        dead_tokens = [
+            token
+            for token, receipt in zip(tokens, receipts)
+            if isinstance(receipt, dict)
+            and receipt.get("status") == "error"
+            and receipt.get("details", {}).get("error") == "DeviceNotRegistered"
+        ]
+        if dead_tokens:
+            dead_result = await db.execute(select(FCMToken).where(FCMToken.token.in_(dead_tokens)))
+            for t in dead_result.scalars().all():
+                t.is_active = False
+            await db.commit()
+
+        logger.info(f"Expo push sent to {user_id}: {len(tokens)} token(s)")
     except Exception as e:
-        logger.error(f"Push notification failed: {e}")
+        logger.error(f"Push notification failed for user {user_id}: {e}")

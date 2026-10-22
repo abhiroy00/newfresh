@@ -33,9 +33,6 @@ twilio==9.3.7
 # Payments
 razorpay==1.4.2
 
-# Push Notifications
-firebase-admin==6.6.0
-
 # Image Upload
 cloudinary==1.41.0
 

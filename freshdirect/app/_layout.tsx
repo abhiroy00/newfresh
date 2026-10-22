@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { StyleSheet } from 'react-native';
 import { useAuthStore } from '@/store/authStore';
 import CartToast from '@/components/CartToast';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -19,10 +20,13 @@ const queryClient = new QueryClient({
 
 export default function RootLayout() {
   const loadFromStorage = useAuthStore((s) => s.loadFromStorage);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   useEffect(() => {
     loadFromStorage();
   }, []);
+
+  usePushNotifications(isAuthenticated);
 
   return (
     <GestureHandlerRootView style={styles.root}>

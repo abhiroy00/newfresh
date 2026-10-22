@@ -11,7 +11,7 @@ Complete FastAPI backend for the Gmart grocery delivery app.
 | Cache / OTP | Redis 7 |
 | Auth | JWT (HS256) + OTP via Twilio |
 | Payments | Razorpay |
-| Push Notifications | Firebase Admin SDK |
+| Push Notifications | Expo Push API |
 | Image Upload | Cloudinary |
 | Task Queue | Celery + Redis |
 | Containers | Docker + Docker Compose |

@@ -53,9 +53,6 @@ class Settings(BaseSettings):
     RAZORPAY_WEBHOOK_SECRET: str = ""
     RAZORPAY_CURRENCY: str = "INR"
 
-    # Firebase
-    FIREBASE_CREDENTIALS_PATH: str = "firebase-credentials.json"
-
     # Cloudinary — accepts either a single CLOUDINARY_URL or three separate vars
     CLOUDINARY_URL: str = ""
     CLOUDINARY_CLOUD_NAME: str = ""
