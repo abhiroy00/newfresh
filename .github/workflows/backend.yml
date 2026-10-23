@@ -108,9 +108,14 @@ jobs:
             grep -q 'shop.gmartfresh.com' .env 2>/dev/null || \
               sed -i 's|^ALLOWED_ORIGINS=\[|ALLOWED_ORIGINS=["https://shop.gmartfresh.com",|' .env
 
+            # Superseded images and build cache pile up across deploys until the
+            # disk fills up mid-build — clear them out before building, not just after.
+            sudo docker image prune -af
+            sudo docker builder prune -af
+
             sudo docker compose -f docker-compose.prod.yml build
             sudo docker compose -f docker-compose.prod.yml up -d
             sleep 15
             sudo docker compose -f docker-compose.prod.yml exec -T api alembic upgrade head
-            sudo docker image prune -f
+            sudo docker image prune -af
             echo "Deploy complete"
