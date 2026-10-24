@@ -1,3 +1,5 @@
+import random
+import string
 import uuid
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,6 +16,16 @@ from app.core.config import settings
 from app.schemas.auth import (
     SendOTPRequest, VerifyOTPRequest, TokenResponse, EmailLoginRequest, EmailSignupRequest,
 )
+
+
+async def generate_user_code(db: AsyncSession) -> str:
+    """A short, human-readable ID (e.g. G-7464) assigned to every user, distinct
+    from their internal UUID — shown in-app and used by support to look users up."""
+    while True:
+        code = f"G-{''.join(random.choices(string.digits, k=4))}"
+        existing = await db.execute(select(User).where(User.user_code == code))
+        if not existing.scalar_one_or_none():
+            return code
 
 
 def _issue_token_pair(user_id: str) -> TokenResponse:
@@ -113,7 +125,7 @@ async def verify_otp_and_login(
     user = result.scalar_one_or_none()
 
     if not user:
-        user = User(phone=phone)
+        user = User(phone=phone, user_code=await generate_user_code(db))
         db.add(user)
         await db.flush()
     elif not user.is_active:
@@ -175,6 +187,7 @@ async def signup_with_email(payload: EmailSignupRequest, db: AsyncSession) -> To
         name=payload.name,
         phone=f"e_{uuid.uuid4().hex[:13]}",
         password_hash=pwd_context.hash(payload.password),
+        user_code=await generate_user_code(db),
     )
     db.add(user)
     await db.flush()

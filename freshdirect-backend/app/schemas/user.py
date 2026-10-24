@@ -5,6 +5,7 @@ from datetime import datetime
 
 class UserOut(BaseModel):
     id: str
+    user_code: str
     phone: str
     name: Optional[str] = None
     email: Optional[str] = None

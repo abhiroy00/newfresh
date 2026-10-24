@@ -10,6 +10,7 @@ from typing import Optional
 from app.core.database import get_db
 from app.core.security import create_access_token, pwd_context
 from app.api.v1.deps import get_current_admin
+from app.services.auth_service import generate_user_code
 from app.models.user import User
 from app.models.product import Product, Carousel
 from app.models.order import Order, OrderStatus
@@ -242,7 +243,7 @@ async def admin_list_users(
     items = []
     for u in users:
         items.append({
-            "id": u.id, "name": u.name, "email": u.email, "phone": u.phone,
+            "id": u.id, "user_code": u.user_code, "name": u.name, "email": u.email, "phone": u.phone,
             "is_admin": u.is_admin, "orders_count": order_counts.get(u.id, 0),
             "created_at": u.created_at.isoformat() if u.created_at else None,
         })
@@ -256,7 +257,7 @@ async def admin_get_user(user_id: str, db: AsyncSession = Depends(get_db), _: Us
     if not u:
         raise HTTPException(404, "User not found")
     order_count = (await db.execute(select(func.count()).where(Order.user_id == user_id))).scalar()
-    return {"id": u.id, "name": u.name, "email": u.email, "phone": u.phone, "is_admin": u.is_admin, "orders_count": order_count, "created_at": u.created_at.isoformat() if u.created_at else None}
+    return {"id": u.id, "user_code": u.user_code, "name": u.name, "email": u.email, "phone": u.phone, "is_admin": u.is_admin, "orders_count": order_count, "created_at": u.created_at.isoformat() if u.created_at else None}
 
 
 @router.delete("/admin/users/{user_id}")
@@ -775,7 +776,7 @@ async def list_riders(db: AsyncSession = Depends(get_db), _: User = Depends(get_
     return {
         "items": [
             {
-                "id": r.id, "name": r.name, "email": r.email,
+                "id": r.id, "user_code": r.user_code, "name": r.name, "email": r.email,
                 "phone": r.phone, "is_active": r.is_active,
                 "created_at": r.created_at.isoformat() if r.created_at else None,
             }
@@ -803,10 +804,11 @@ async def create_rider(
         password_hash=pwd_context.hash(payload.password),
         is_rider=True,
         is_active=True,
+        user_code=await generate_user_code(db),
     )
     db.add(rider)
     await db.flush()
-    return {"id": rider.id, "name": rider.name, "email": rider.email, "message": "Rider created"}
+    return {"id": rider.id, "user_code": rider.user_code, "name": rider.name, "email": rider.email, "message": "Rider created"}
 
 
 @router.delete("/admin/riders/{rider_id}")

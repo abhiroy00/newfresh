@@ -18,6 +18,7 @@ class User(Base):
     id: Mapped[str] = mapped_column(
         String(36), primary_key=True, default=lambda: str(uuid.uuid4())
     )
+    user_code: Mapped[str] = mapped_column(String(10), unique=True, nullable=False, index=True)
     phone: Mapped[str] = mapped_column(String(15), unique=True, nullable=False, index=True)
     name: Mapped[str | None] = mapped_column(String(120), nullable=True)
     email: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)

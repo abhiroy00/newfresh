@@ -11,6 +11,7 @@ from app.core.database import AsyncSessionLocal
 from app.core.security import pwd_context
 from app.models.product import Category, Product
 from app.models.user import User
+from app.services.auth_service import generate_user_code
 from slugify import slugify
 
 ADMIN_EMAIL = os.environ.get("SEED_ADMIN_EMAIL", "admin@example.com")
@@ -109,6 +110,7 @@ async def seed():
                 email=ADMIN_EMAIL,
                 is_admin=True,
                 password_hash=pwd_context.hash(ADMIN_PASSWORD),
+                user_code=await generate_user_code(db),
             )
             db.add(admin)
             await db.commit()
