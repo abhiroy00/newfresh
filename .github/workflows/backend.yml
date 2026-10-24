@@ -114,7 +114,7 @@ jobs:
             sudo docker builder prune -af
 
             sudo docker compose -f docker-compose.prod.yml build
-            sudo docker compose -f docker-compose.prod.yml up -d
+            sudo docker compose -f docker-compose.prod.yml up -d --remove-orphans
             sleep 15
             sudo docker compose -f docker-compose.prod.yml exec -T api alembic upgrade head
             sudo docker image prune -af
