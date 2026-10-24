@@ -38,27 +38,11 @@ services:
 
   celery:
     build: .
-    image: freshdirect-backend-celery:latest
     restart: unless-stopped
-    command: celery -A app.worker.celery_app worker --loglevel=info
-    env_file: .env
-    environment:
-      - REDIS_URL=redis://redis:6379/0
-      - CELERY_BROKER_URL=redis://redis:6379/1
-      - CELERY_RESULT_BACKEND=redis://redis:6379/2
-    depends_on:
-      redis:
-        condition: service_healthy
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  celery-beat:
-    image: freshdirect-backend-celery:latest
-    restart: unless-stopped
-    command: celery -A app.worker.celery_app beat --loglevel=info
+    # Beat runs embedded in the worker (-B) instead of as a separate process —
+    # this is a single-worker deployment, so there's no risk of beat firing the
+    # schedule twice, and it halves the extra load this feature adds to the host.
+    command: celery -A app.worker.celery_app worker -B --loglevel=info
     env_file: .env
     environment:
       - REDIS_URL=redis://redis:6379/0
