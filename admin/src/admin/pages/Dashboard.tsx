@@ -5,7 +5,7 @@ import {
 } from 'recharts'
 import {
   ShoppingBag, IndianRupee, TrendingUp, AlertCircle, Truck,
-  BarChart3, RefreshCw, Calendar, PauseCircle, PlayCircle,
+  BarChart3, RefreshCw, Calendar, PauseCircle, PlayCircle, Users,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -153,6 +153,14 @@ export default function Dashboard() {
       color: 'bg-red-500',
       sub: 'Below 10 units',
       onClick: () => navigate('/products?status=low_stock'),
+    },
+    {
+      label: 'Family Members',
+      value: stats?.total_family_members ?? '—',
+      icon: <Users size={28} />,
+      color: 'bg-teal-500',
+      sub: stats?.avg_family_size ? `Avg ${stats.avg_family_size} per household` : 'Added via profile',
+      onClick: () => navigate('/users'),
     },
   ]
 
@@ -305,13 +313,13 @@ export default function Dashboard() {
       )}
 
       {isLoading ? (
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-          {[...Array(5)].map((_, i) => (
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
+          {[...Array(6)].map((_, i) => (
             <div key={i} className="h-28 bg-gray-200 rounded-2xl animate-pulse" />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
           {cards.map((c) => (
             <button
               key={c.label}

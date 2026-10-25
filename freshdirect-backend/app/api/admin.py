@@ -11,7 +11,7 @@ from app.core.database import get_db
 from app.core.security import create_access_token, pwd_context
 from app.api.v1.deps import get_current_admin
 from app.services.auth_service import generate_user_code
-from app.models.user import User
+from app.models.user import User, FamilyMember
 from app.models.product import Product, Carousel
 from app.models.order import Order, OrderStatus
 from app.models.support import SupportTicket, SupportMessage, TicketStatus, SenderType
@@ -240,11 +240,18 @@ async def admin_list_users(
         .where(Order.user_id.in_([u.id for u in users]))
     )
     order_counts = {row.user_id: row.cnt for row in (await db.execute(order_counts_q))}
+    family_counts_q = (
+        select(FamilyMember.user_id, func.count(FamilyMember.id).label("cnt"))
+        .group_by(FamilyMember.user_id)
+        .where(FamilyMember.user_id.in_([u.id for u in users]))
+    )
+    family_counts = {row.user_id: row.cnt for row in (await db.execute(family_counts_q))}
     items = []
     for u in users:
         items.append({
             "id": u.id, "user_code": u.user_code, "name": u.name, "email": u.email, "phone": u.phone,
             "is_admin": u.is_admin, "orders_count": order_counts.get(u.id, 0),
+            "family_members_count": family_counts.get(u.id, 0),
             "created_at": u.created_at.isoformat() if u.created_at else None,
         })
     return {"items": items, "total": total, "page": page, "per_page": per_page, "total_pages": (total + per_page - 1) // per_page}
@@ -257,7 +264,17 @@ async def admin_get_user(user_id: str, db: AsyncSession = Depends(get_db), _: Us
     if not u:
         raise HTTPException(404, "User not found")
     order_count = (await db.execute(select(func.count()).where(Order.user_id == user_id))).scalar()
-    return {"id": u.id, "user_code": u.user_code, "name": u.name, "email": u.email, "phone": u.phone, "is_admin": u.is_admin, "orders_count": order_count, "created_at": u.created_at.isoformat() if u.created_at else None}
+    family_members = (await db.execute(
+        select(FamilyMember).where(FamilyMember.user_id == user_id).order_by(FamilyMember.created_at)
+    )).scalars().all()
+    return {
+        "id": u.id, "user_code": u.user_code, "name": u.name, "email": u.email, "phone": u.phone,
+        "is_admin": u.is_admin, "orders_count": order_count,
+        "family_members": [
+            {"id": m.id, "name": m.name, "age": m.age, "weight_kg": m.weight_kg} for m in family_members
+        ],
+        "created_at": u.created_at.isoformat() if u.created_at else None,
+    }
 
 
 @router.delete("/admin/users/{user_id}")
@@ -437,6 +454,11 @@ async def admin_stats(db: AsyncSession = Depends(get_db), _: User = Depends(get_
         "created_at": o.created_at.isoformat() if o.created_at else None,
     } for o in recent_orders_rows]
 
+    # Family members (added via mobile profile)
+    total_family_members = (await db.execute(select(func.count(FamilyMember.id)))).scalar() or 0
+    households_with_family = (await db.execute(select(func.count(func.distinct(FamilyMember.user_id))))).scalar() or 0
+    avg_family_size = round(total_family_members / households_with_family, 1) if households_with_family else 0
+
     return {
         "revenue": float(revenue),
         "total_orders": total_orders,
@@ -445,6 +467,8 @@ async def admin_stats(db: AsyncSession = Depends(get_db), _: User = Depends(get_
         "orders_by_status": orders_by_status,
         "daily_revenue": daily_revenue,
         "recent_orders": recent_orders,
+        "total_family_members": total_family_members,
+        "avg_family_size": avg_family_size,
     }
 
 

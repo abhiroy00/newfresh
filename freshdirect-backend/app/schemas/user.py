@@ -1,5 +1,5 @@
 from typing import Optional
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
 
 
@@ -66,5 +66,26 @@ class AddressOut(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     is_default: bool
+
+    model_config = {"from_attributes": True}
+
+
+class FamilyMemberCreate(BaseModel):
+    name: Optional[str] = None
+    age: int = Field(ge=0, le=120)
+    weight_kg: float = Field(gt=0, le=300)
+
+
+class FamilyMemberUpdate(BaseModel):
+    name: Optional[str] = None
+    age: Optional[int] = Field(default=None, ge=0, le=120)
+    weight_kg: Optional[float] = Field(default=None, gt=0, le=300)
+
+
+class FamilyMemberOut(BaseModel):
+    id: str
+    name: Optional[str] = None
+    age: int
+    weight_kg: float
 
     model_config = {"from_attributes": True}

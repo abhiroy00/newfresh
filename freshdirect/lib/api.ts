@@ -120,6 +120,16 @@ export const usersApi = {
   deleteAddress: (id: string) => api.delete(`/users/addresses/${id}`),
 };
 
+// Family Members
+export const familyMembersApi = {
+  list: () => api.get('/users/family-members'),
+  create: (data: { name?: string; age: number; weight_kg: number }) =>
+    api.post('/users/family-members', data),
+  update: (id: string, data: { name?: string; age?: number; weight_kg?: number }) =>
+    api.patch(`/users/family-members/${id}`, data),
+  remove: (id: string) => api.delete(`/users/family-members/${id}`),
+};
+
 // Products
 export const productsApi = {
   list: (params?: {

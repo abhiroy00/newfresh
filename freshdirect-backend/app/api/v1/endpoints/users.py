@@ -4,8 +4,11 @@ from sqlalchemy import select
 from app.core.database import get_db
 from app.core.security import pwd_context
 from app.api.v1.deps import get_current_user
-from app.models.user import User, Address
-from app.schemas.user import UserOut, UserUpdate, AddressCreate, AddressOut, AddressUpdate
+from app.models.user import User, Address, FamilyMember
+from app.schemas.user import (
+    UserOut, UserUpdate, AddressCreate, AddressOut, AddressUpdate,
+    FamilyMemberCreate, FamilyMemberUpdate, FamilyMemberOut,
+)
 from app.schemas.auth import SetPasswordRequest
 
 router = APIRouter(prefix="/users", tags=["Users"])
@@ -70,4 +73,38 @@ async def delete_address(address_id: str, current_user: User = Depends(get_curre
     if not address:
         raise HTTPException(404, "Address not found")
     await db.delete(address)
+    return {"success": True, "message": "Deleted"}
+
+@router.get("/family-members")
+async def list_family_members(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(FamilyMember).where(FamilyMember.user_id == current_user.id).order_by(FamilyMember.created_at)
+    )
+    return {"success": True, "data": [FamilyMemberOut.model_validate(m) for m in result.scalars().all()]}
+
+@router.post("/family-members", status_code=201)
+async def create_family_member(payload: FamilyMemberCreate, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    member = FamilyMember(**payload.model_dump(), user_id=current_user.id)
+    db.add(member)
+    await db.flush()
+    return {"success": True, "data": FamilyMemberOut.model_validate(member)}
+
+@router.patch("/family-members/{member_id}")
+async def update_family_member(member_id: str, payload: FamilyMemberUpdate, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    res = await db.execute(select(FamilyMember).where(FamilyMember.id == member_id, FamilyMember.user_id == current_user.id))
+    member = res.scalar_one_or_none()
+    if not member:
+        raise HTTPException(404, "Family member not found")
+    for k, v in payload.model_dump(exclude_unset=True).items():
+        setattr(member, k, v)
+    await db.flush()
+    return {"success": True, "data": FamilyMemberOut.model_validate(member)}
+
+@router.delete("/family-members/{member_id}")
+async def delete_family_member(member_id: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    res = await db.execute(select(FamilyMember).where(FamilyMember.id == member_id, FamilyMember.user_id == current_user.id))
+    member = res.scalar_one_or_none()
+    if not member:
+        raise HTTPException(404, "Family member not found")
+    await db.delete(member)
     return {"success": True, "message": "Deleted"}

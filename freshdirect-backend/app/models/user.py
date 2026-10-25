@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
-from sqlalchemy import String, Boolean, ForeignKey, DateTime, Text
+from sqlalchemy import String, Boolean, ForeignKey, DateTime, Text, Integer, Float
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
@@ -53,6 +53,9 @@ class User(Base):
     wishlist_items: Mapped[list["WishlistItem"]] = relationship(
         "WishlistItem", back_populates="user", cascade="all, delete-orphan"
     )
+    family_members: Mapped[list["FamilyMember"]] = relationship(
+        "FamilyMember", back_populates="user", cascade="all, delete-orphan"
+    )
 
     @property
     def has_password(self) -> bool:
@@ -93,3 +96,26 @@ class Address(Base):
 
     def __repr__(self) -> str:
         return f"<Address id={self.id} label={self.label} user_id={self.user_id}>"
+
+
+class FamilyMember(Base):
+    __tablename__ = "family_members"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    age: Mapped[int] = mapped_column(Integer, nullable=False)
+    weight_kg: Mapped[float] = mapped_column(Float, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+    # Relationships
+    user: Mapped["User"] = relationship("User", back_populates="family_members")
+
+    def __repr__(self) -> str:
+        return f"<FamilyMember id={self.id} user_id={self.user_id} age={self.age}>"
