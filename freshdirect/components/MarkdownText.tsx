@@ -32,8 +32,28 @@ function renderInline(text: string, keyPrefix: string) {
   return segments;
 }
 
+// Descriptions saved from the rich-text editor may be HTML; convert to the markdown subset below.
+function htmlToMarkdown(input: string): string {
+  if (!/<\/?[a-z][^>]*>/i.test(input)) return input;
+  return input
+    .replace(/<h[1-6][^>]*>/gi, '\n# ')
+    .replace(/<\/h[1-6]>/gi, '\n')
+    .replace(/<li[^>]*>/gi, '\n- ')
+    .replace(/<(strong|b)>/gi, '**').replace(/<\/(strong|b)>/gi, '**')
+    .replace(/<(em|i)>/gi, '*').replace(/<\/(em|i)>/gi, '*')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|ul|ol)>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#0?39;/g, "'");
+}
+
 export default function MarkdownText({ children }: { children?: string | null }) {
-  const source = (children || '').replace(/\r\n/g, '\n');
+  const source = htmlToMarkdown(children || '').replace(/\r\n/g, '\n');
   if (!source.trim()) return null;
 
   const lines = source.split('\n');

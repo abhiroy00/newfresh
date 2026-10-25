@@ -250,7 +250,7 @@ export default function ProductDetailScreen() {
                 }
               >
                 {imageUrls.map((url) => (
-                  <Image key={url} source={{ uri: url }} style={styles.heroImage} resizeMode="cover" />
+                  <Image key={url} source={{ uri: url }} style={styles.heroImage} resizeMode="contain" />
                 ))}
               </ScrollView>
               {imageUrls.length > 1 && (
