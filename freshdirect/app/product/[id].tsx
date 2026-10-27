@@ -270,23 +270,24 @@ export default function ProductDetailScreen() {
             </View>
           )}
 
-          {/* Badges */}
-          <View style={[styles.badgeGroup, { top: insets.top + 64 }]}>
-            {product.badge && (
-              <View style={[styles.heroBadge, { backgroundColor: product.badge_color || Colors.primary }]}>
-                <Text style={styles.heroBadgeText}>{product.badge}</Text>
-              </View>
-            )}
-            {product.is_organic && (
-              <View style={styles.organicBadge}>
-                <Leaf size={10} color="#fff" fill="#fff" />
-                <Text style={styles.organicBadgeText}>Organic</Text>
-              </View>
-            )}
-          </View>
         </View>
 
         <View style={styles.content}>
+        {/* Badges */}
+        {(product.badge || product.is_organic) && <View style={styles.badgeGroup}>
+          {product.badge && (
+            <View style={[styles.heroBadge, { backgroundColor: product.badge_color || Colors.primary }]}>
+              <Text style={styles.heroBadgeText}>{product.badge}</Text>
+            </View>
+          )}
+          {product.is_organic && (
+            <View style={styles.organicBadge}>
+              <Leaf size={10} color="#fff" fill="#fff" />
+              <Text style={styles.organicBadgeText}>Organic</Text>
+            </View>
+          )}
+        </View>}
+
           {/* ===== TITLE & PRICE ===== */}
           <View style={styles.titleBlock}>
             <Text style={styles.productName}>{nameEn}</Text>
@@ -518,7 +519,7 @@ const styles = StyleSheet.create({
   heroContainer: {
     width: '100%',
     aspectRatio: 1,
-    backgroundColor: Colors.surfaceContainerLow,
+    backgroundColor: '#fff',
     position: 'relative',
   },
   heroImage: { width: SCREEN_W, height: '100%' },
@@ -534,7 +535,7 @@ const styles = StyleSheet.create({
   imageDotInactive: { backgroundColor: 'rgba(255,255,255,0.7)' },
 
   // ---- BADGES ----
-  badgeGroup: { position: 'absolute', left: Spacing.md, gap: 6, zIndex: 2 },
+  badgeGroup: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: Spacing.sm },
   heroBadge: {
     paddingHorizontal: 10, paddingVertical: 4,
     borderRadius: BorderRadius.full, alignSelf: 'flex-start',

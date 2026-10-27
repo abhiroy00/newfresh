@@ -115,25 +115,25 @@ export default function ProductDetail() {
       <div className="grid md:grid-cols-2 gap-8 mb-10">
         {/* Gallery */}
         <div>
-          <div className="relative aspect-square rounded-3xl overflow-hidden bg-surface-container-low mb-3">
+          <div className="relative aspect-square rounded-3xl overflow-hidden bg-white mb-3">
             {imageUrls.length > 0 ? (
-              <img src={imageUrls[imageIndex]} alt={product.name} className="w-full h-full object-cover" />
+              <img src={imageUrls[imageIndex]} alt={product.name} className="w-full h-full object-contain" />
             ) : (
               <div className="w-full h-full flex items-center justify-center"><Leaf size={64} className="text-outline" /></div>
             )}
-            <div className="absolute top-3 left-3 flex flex-col gap-1.5">
-              {product.badge && (
-                <span className="text-[11px] font-bold uppercase text-white px-2.5 py-1 rounded-full" style={{ backgroundColor: product.badge_color || '#005322' }}>
-                  {product.badge}
-                </span>
-              )}
-              {product.is_organic && (
-                <span className="flex items-center gap-1 text-[11px] font-bold text-white bg-accent-mint px-2.5 py-1 rounded-full">
-                  <Leaf size={10} fill="white" /> Organic
-                </span>
-              )}
-            </div>
           </div>
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {product.badge && (
+            <span className="text-[11px] font-bold uppercase text-white px-2.5 py-1 rounded-full" style={{ backgroundColor: product.badge_color || '#005322' }}>
+              {product.badge}
+            </span>
+          )}
+          {product.is_organic && (
+            <span className="flex items-center gap-1 text-[11px] font-bold text-white bg-accent-mint px-2.5 py-1 rounded-full">
+              <Leaf size={10} fill="white" /> Organic
+            </span>
+          )}
+        </div>
           {imageUrls.length > 1 && (
             <div className="flex gap-2">
               {imageUrls.map((url, i) => (

@@ -50,22 +50,22 @@ export default function ProductCard({ product, index = 0 }: { product: Product; 
             <Image
               source={{ uri: product.image }}
               style={styles.image}
-              resizeMode="cover"
+              resizeMode="contain"
             />
           ) : (
             <View style={[styles.image, styles.imagePlaceholder]}>
               <ShoppingBag size={28} color={Colors.outline} />
             </View>
           )}
-          {product.badge && (
-            <View style={[styles.badge, { backgroundColor: product.badgeColor || Colors.primary }]}>
-              <Text style={styles.badgeText}>{product.badge}</Text>
-            </View>
-          )}
         </View>
 
         {/* Info */}
         <View style={styles.info}>
+          {product.badge ? (
+            <View style={[styles.badge, { backgroundColor: product.badgeColor || Colors.primary }]}>
+              <Text style={styles.badgeText}>{product.badge}</Text>
+            </View>
+          ) : null}
           <View style={styles.nameBlock}>
             <Text style={styles.name} numberOfLines={2}>{nameEn || 'Product'}</Text>
             {nameHi ? <Text style={styles.nameHi} numberOfLines={1}>{nameHi}</Text> : null}
@@ -97,15 +97,14 @@ const styles = StyleSheet.create({
   imageContainer: {
     width: '100%',
     aspectRatio: 1,
-    backgroundColor: Colors.surfaceContainerLow,
+    backgroundColor: '#fff',
     position: 'relative',
   },
   image: { width: '100%', height: '100%' },
   imagePlaceholder: { alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surfaceContainerLow },
   badge: {
-    position: 'absolute',
-    top: 8,
-    left: 8,
+    alignSelf: 'flex-start',
+    marginBottom: 6,
     paddingHorizontal: 6,
     paddingVertical: 3,
     borderRadius: BorderRadius.full,
