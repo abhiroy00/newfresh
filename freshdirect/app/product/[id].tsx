@@ -15,6 +15,7 @@ import {
 import { Colors, BorderRadius, Spacing, Shadows } from '@/constants/theme';
 import { useCartStore } from '@/store/cartStore';
 import { productsApi } from '@/lib/api';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -146,20 +147,24 @@ export default function ProductDetailScreen() {
   const addItem = useCartStore((s) => s.addItem);
   const insets = useSafeAreaInsets();
 
-  React.useEffect(() => {
-    (async () => {
-      try {
-        const { data } = await productsApi.detail(id || '');
-        setProduct(data.data);
-      } catch (e) {
-        const { PRODUCTS } = require('@/constants/data');
-        const local = PRODUCTS.find((p: any) => p.id === id);
-        if (local) setProduct(local);
-      } finally {
-        setLoading(false);
-      }
-    })();
+  const loadProduct = React.useCallback(async () => {
+    try {
+      const { data } = await productsApi.detail(id || '');
+      setProduct(data.data);
+    } catch (e) {
+      const { PRODUCTS } = require('@/constants/data');
+      const local = PRODUCTS.find((p: any) => p.id === id);
+      if (local) setProduct(local);
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
+
+  React.useEffect(() => {
+    loadProduct();
+  }, [loadProduct]);
+
+  const { refreshControl } = usePullRefresh(loadProduct);
 
   if (loading || !product) {
     return (
@@ -225,7 +230,7 @@ export default function ProductDetailScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Floating Header */}
+      {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + Spacing.sm }]}>
         <Pressable style={styles.headerBtn} onPress={() => router.back()}>
           <ChevronLeft size={24} color={Colors.onSurface} />
@@ -236,7 +241,7 @@ export default function ProductDetailScreen() {
         </Pressable>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
+      <ScrollView showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
         {/* Hero Image Carousel */}
         <View style={styles.heroContainer}>
           {imageUrls.length > 0 ? (
@@ -500,10 +505,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.md,
     paddingBottom: Spacing.sm,
-    backgroundColor: 'rgba(239,254,235,0.92)',
-    position: 'absolute',
-    top: 0, left: 0, right: 0,
-    zIndex: 10,
+    backgroundColor: Colors.background,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.04)',
   },
@@ -518,7 +520,7 @@ const styles = StyleSheet.create({
   // ---- HERO ----
   heroContainer: {
     width: '100%',
-    aspectRatio: 1,
+    aspectRatio: 1.25,
     backgroundColor: '#fff',
     position: 'relative',
   },

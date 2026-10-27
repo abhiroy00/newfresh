@@ -17,6 +17,7 @@ import { useAuthStore } from '@/store/authStore';
 import { productsApi, usersApi, api } from '@/lib/api';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { useAsyncData } from '@/hooks/useAsyncData';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -53,18 +54,20 @@ export default function HomeScreen() {
   const [userLocation, setUserLocation] = useState<string>('Bengaluru');
 
   // Fetch carousel data
-  useEffect(() => {
-    (async () => {
-      try {
-        const { data: carouselRes } = await api.get('/carousel');
-        if (carouselRes && Array.isArray(carouselRes.data)) {
-          setCarousels(carouselRes.data);
-        }
-      } catch (e) {
-        console.warn('Failed to fetch carousel:', e);
+  const loadCarousel = useCallback(async () => {
+    try {
+      const { data: carouselRes } = await api.get('/carousel');
+      if (carouselRes && Array.isArray(carouselRes.data)) {
+        setCarousels(carouselRes.data);
       }
-    })();
+    } catch (e) {
+      console.warn('Failed to fetch carousel:', e);
+    }
   }, []);
+
+  useEffect(() => {
+    loadCarousel();
+  }, [loadCarousel]);
 
   // Auto-advance carousel
   useEffect(() => {
@@ -132,6 +135,10 @@ export default function HomeScreen() {
   const productsQuery = useAsyncData<any[]>(fetchProducts, PRODUCTS);
   const categoriesQuery = useAsyncData<any[]>(fetchCategories, CATEGORIES);
 
+  const { refreshControl } = usePullRefresh(() =>
+    Promise.all([productsQuery.refetch(), categoriesQuery.refetch(), loadCarousel()]),
+  );
+
   const products = productsQuery.data;
   const categories = categoriesQuery.data;
   const loading = productsQuery.loading;
@@ -158,6 +165,7 @@ export default function HomeScreen() {
         stickyHeaderIndices={[0]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
+        refreshControl={refreshControl}
       >
         {/* Search Bar (sticky) */}
         <View style={styles.searchContainer}>

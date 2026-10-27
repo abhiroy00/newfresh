@@ -12,6 +12,7 @@ import { Colors, BorderRadius, Spacing, Shadows } from '@/constants/theme';
 import { useAuthStore } from '@/store/authStore';
 import { usersApi, ordersApi } from '@/lib/api';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { formatPhone } from '@/lib/phone';
 
 // Standard delivery fee (mirrors backend DELIVERY_FEE) — used to value
@@ -50,33 +51,37 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState<any>(null);
   const [stats, setStats] = useState({ orders: 0, saved: 0 });
 
+  const loadProfile = React.useCallback(async () => {
+    try {
+      const { data } = await usersApi.me();
+      setProfile(data.data);
+    } catch (e) {
+      console.warn('Failed to fetch profile:', e);
+    }
+    try {
+      const { data } = await ordersApi.list({ page: 1, per_page: 50 });
+      const orders = data.data || [];
+      // "Saved" = real money saved: coupon/discounts + waived delivery fees
+      const saved = orders.reduce(
+        (sum: number, o: any) =>
+          sum + (o.discount || 0) + ((o.delivery_fee || 0) === 0 && o.status !== 'cancelled' ? DELIVERY_FEE : 0),
+        0,
+      );
+      const orderCount = orders.filter((o: any) => o.status !== 'cancelled').length;
+      setStats({ orders: orderCount, saved: Math.round(saved) });
+    } catch (e) {
+      console.warn('Failed to fetch order stats:', e);
+    }
+  }, []);
+
   // Refetch on focus so edits from profile-edit show up immediately
   useFocusEffect(
     React.useCallback(() => {
-      (async () => {
-        try {
-          const { data } = await usersApi.me();
-          setProfile(data.data);
-        } catch (e) {
-          console.warn('Failed to fetch profile:', e);
-        }
-        try {
-          const { data } = await ordersApi.list({ page: 1, per_page: 50 });
-          const orders = data.data || [];
-          // "Saved" = real money saved: coupon/discounts + waived delivery fees
-          const saved = orders.reduce(
-            (sum: number, o: any) =>
-              sum + (o.discount || 0) + ((o.delivery_fee || 0) === 0 && o.status !== 'cancelled' ? DELIVERY_FEE : 0),
-            0,
-          );
-          const orderCount = orders.filter((o: any) => o.status !== 'cancelled').length;
-          setStats({ orders: orderCount, saved: Math.round(saved) });
-        } catch (e) {
-          console.warn('Failed to fetch order stats:', e);
-        }
-      })();
-    }, [])
+      loadProfile();
+    }, [loadProfile])
   );
+
+  const { refreshControl } = usePullRefresh(loadProfile);
 
   const doLogout = async () => {
     await logout();
@@ -105,6 +110,7 @@ export default function ProfileScreen() {
         style={styles.scroll}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarHeight + 16 }]}
         showsVerticalScrollIndicator={false}
+        refreshControl={refreshControl}
       >
         {/* Profile Card */}
         <View>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Linking,
 } from 'react-native';
@@ -39,21 +40,24 @@ export default function TrackScreen() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(false);
 
-  React.useEffect(() => {
-    let cancelled = false;
+  const loadOrder = React.useCallback(async () => {
     if (!id) { setLoading(false); setError(true); return; }
-    (async () => {
-      try {
-        const { data } = await ordersApi.detail(String(id));
-        if (!cancelled) setOrder(data?.data ?? null);
-      } catch {
-        if (!cancelled) setError(true);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
+    try {
+      const { data } = await ordersApi.detail(String(id));
+      setOrder(data?.data ?? null);
+      setError(false);
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
+
+  React.useEffect(() => {
+    loadOrder();
+  }, [loadOrder]);
+
+  const { refreshControl } = usePullRefresh(loadOrder);
 
   const Header = (
     <SafeAreaView style={styles.header} edges={['top']}>
@@ -93,7 +97,7 @@ export default function TrackScreen() {
   return (
     <View style={styles.container}>
       {Header}
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
 
         {/* Order info + ETA */}
         <View style={styles.card}>

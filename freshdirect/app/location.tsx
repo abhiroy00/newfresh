@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator,
 } from 'react-native';
@@ -30,6 +31,8 @@ export default function LocationScreen() {
   useEffect(() => {
     fetchAddresses();
   }, []);
+
+  const { refreshControl } = usePullRefresh(() => fetchAddresses());
 
   const fetchAddresses = async () => {
     try {
@@ -102,7 +105,7 @@ export default function LocationScreen() {
         <View style={styles.spacer} />
       </SafeAreaView>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" refreshControl={refreshControl}>
         {/* Search */}
         <View style={styles.searchBar}>
           <Search size={18} color={Colors.outline} />

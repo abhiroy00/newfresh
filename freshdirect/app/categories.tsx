@@ -10,6 +10,7 @@ import { CATEGORIES, PRODUCTS } from '@/constants/data';
 import ProductCard from '@/components/ProductCard';
 import { productsApi } from '@/lib/api';
 import { useAsyncData } from '@/hooks/useAsyncData';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -59,6 +60,10 @@ export default function CategoriesScreen() {
 
   const categoriesQuery = useAsyncData<any[]>(fetchCategories, CATEGORIES);
   const productsQuery = useAsyncData<any[]>(fetchProducts, PRODUCTS);
+
+  const { refreshControl } = usePullRefresh(() =>
+    Promise.all([categoriesQuery.refetch(), productsQuery.refetch()]),
+  );
 
   const categories = categoriesQuery.data;
   const products = productsQuery.data;
@@ -117,6 +122,7 @@ export default function CategoriesScreen() {
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={refreshControl}
         >
           {filtered.length === 0 ? (
             <View style={styles.empty}>

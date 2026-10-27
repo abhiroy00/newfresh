@@ -10,6 +10,7 @@ import { Colors, BorderRadius, Spacing, Shadows } from '@/constants/theme';
 import { useCartStore } from '@/store/cartStore';
 import SwipeableCartItem from '@/components/SwipeableCartItem';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 
 export default function CartScreen() {
   const router = useRouter();
@@ -26,6 +27,8 @@ export default function CartScreen() {
       fetchCart();
     }, [fetchCart])
   );
+
+  const { refreshControl } = usePullRefresh(fetchCart);
 
   if (loading && items.length === 0) {
     return (
@@ -75,6 +78,7 @@ export default function CartScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={refreshControl}
       >
         {subtotal < 499 && (
           <View style={styles.freeBanner}>

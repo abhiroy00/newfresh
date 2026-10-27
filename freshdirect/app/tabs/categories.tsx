@@ -9,6 +9,7 @@ import { Colors, BorderRadius, Spacing, Shadows } from '@/constants/theme';
 import { CATEGORIES } from '@/constants/data';
 import { productsApi } from '@/lib/api';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
+import { usePullRefresh } from '@/hooks/usePullRefresh';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const TILE_W = (SCREEN_W - Spacing.md * 2 - Spacing.sm * 2) / 3;
@@ -19,23 +20,23 @@ export default function CategoriesTab() {
   const [categories, setCategories] = React.useState<any[]>(CATEGORIES);
   const [loading, setLoading] = React.useState(true);
 
-  React.useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const { data } = await productsApi.categories();
-        const cats = data?.data;
-        if (!cancelled && Array.isArray(cats) && cats.length) setCategories(cats);
-      } catch (e) {
-        console.warn('Failed to load categories:', e);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  const loadCategories = React.useCallback(async () => {
+    try {
+      const { data } = await productsApi.categories();
+      const cats = data?.data;
+      if (Array.isArray(cats) && cats.length) setCategories(cats);
+    } catch (e) {
+      console.warn('Failed to load categories:', e);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  React.useEffect(() => {
+    loadCategories();
+  }, [loadCategories]);
+
+  const { refreshControl } = usePullRefresh(loadCategories);
 
   const openCategory = (id: string) =>
     router.push({ pathname: '/categories', params: { category: id } });
@@ -56,6 +57,7 @@ export default function CategoriesTab() {
           style={styles.scroll}
           contentContainerStyle={[styles.content, { paddingBottom: tabBarHeight + 16 }]}
           showsVerticalScrollIndicator={false}
+          refreshControl={refreshControl}
         >
           <Pressable style={styles.allRow} onPress={() => router.push('/categories')}>
             <Text style={styles.allText}>View all products</Text>
