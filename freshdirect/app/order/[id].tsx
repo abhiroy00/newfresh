@@ -163,6 +163,7 @@ export default function OrderDetailScreen() {
                 <Image
                   source={{ uri: it.product_image_url || it.product?.primary_image_url || it.product?.images?.[0]?.url }}
                   style={styles.itemImage}
+                  resizeMode="contain"
                 />
               ) : (
                 <View style={[styles.itemImage, styles.itemImagePlaceholder]}>

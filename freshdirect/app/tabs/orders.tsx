@@ -104,7 +104,7 @@ export default function OrdersScreen() {
                 onPress={() => router.push({ pathname: '/order/[id]', params: { id: order.id } })}
               >
                 {firstItemImage ? (
-                  <Image source={{ uri: firstItemImage }} style={styles.orderImage} />
+                  <Image source={{ uri: firstItemImage }} style={styles.orderImage} resizeMode="contain" />
                 ) : (
                   <View style={[styles.orderImage, { backgroundColor: Colors.surfaceContainerLow, alignItems: 'center', justifyContent: 'center' }]}>
                     <Package size={24} color={Colors.outline} />

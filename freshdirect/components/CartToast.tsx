@@ -68,7 +68,7 @@ export default function CartToast() {
 
       <View style={styles.imageWrap}>
         {product.image ? (
-          <Image source={{ uri: product.image }} style={styles.image} resizeMode="cover" />
+          <Image source={{ uri: product.image }} style={styles.image} resizeMode="contain" />
         ) : (
           <View style={styles.imageFallback}>
             <ShoppingCart size={20} color={Colors.primary} />

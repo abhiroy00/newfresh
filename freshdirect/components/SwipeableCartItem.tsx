@@ -63,7 +63,7 @@ export default function SwipeableCartItem({ item, onDelete, onUpdateQty }: Props
       <GestureDetector gesture={panGesture}>
         <Animated.View style={[styles.card, animStyle]}>
           {item.image ? (
-            <Image source={{ uri: item.image }} style={styles.image} />
+            <Image source={{ uri: item.image }} style={styles.image} resizeMode="contain" />
           ) : (
             <View style={[styles.image, styles.imagePlaceholder]}>
               <ShoppingBag size={22} color={Colors.outline} />
