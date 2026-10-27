@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
@@ -106,11 +106,6 @@ export default function ProductDetail() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <nav className="text-xs text-on-surface-variant mb-4 flex items-center gap-1.5">
-        <Link to="/" className="hover:text-primary">Home</Link> /
-        <Link to="/products" className="hover:text-primary">Products</Link> /
-        <span className="text-on-surface font-medium">{product.name}</span>
-      </nav>
 
       <div className="grid md:grid-cols-2 gap-8 mb-10">
         {/* Gallery */}
