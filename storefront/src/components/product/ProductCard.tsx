@@ -61,13 +61,13 @@ export default function ProductCard({ product }: { product: Product }) {
       to={`/product/${product.id}`}
       className="card card-hover group relative flex flex-col overflow-hidden"
     >
-      <div className="relative aspect-square bg-surface-container-low overflow-hidden">
+      <div className="relative aspect-square bg-white overflow-hidden">
         {product.primary_image_url ? (
           <img
             src={product.primary_image_url}
             alt={product.name}
             loading="lazy"
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
@@ -75,7 +75,26 @@ export default function ProductCard({ product }: { product: Product }) {
           </div>
         )}
 
-        <div className="absolute top-2 left-2 flex flex-col gap-1 items-start">
+        <div className="absolute top-2 right-2 flex flex-col gap-1.5 items-end">
+          <button
+            type="button"
+            onClick={handleToggleWishlist}
+            className="w-7 h-7 rounded-full bg-white/90 backdrop-blur flex items-center justify-center shadow-sm hover:scale-110 active:scale-90 transition-transform"
+            aria-label={wishlisted ? 'Remove from wishlist' : 'Save to wishlist'}
+          >
+            <Heart size={14} className={wishlisted ? 'text-error' : 'text-outline'} fill={wishlisted ? 'currentColor' : 'none'} />
+          </button>
+        </div>
+
+        {outOfStock && (
+          <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
+            <span className="text-sm font-bold text-on-surface-variant">Out of stock</span>
+          </div>
+        )}
+      </div>
+
+      {(product.badge || product.is_organic || discount) && (
+        <div className="px-3 pt-2.5 flex flex-wrap gap-1 items-center">
           {product.badge && (
             <span
               className="text-[10px] font-bold uppercase text-white px-2 py-0.5 rounded-full"
@@ -89,32 +108,15 @@ export default function ProductCard({ product }: { product: Product }) {
               <Leaf size={9} fill="white" /> Organic
             </span>
           )}
-        </div>
-
-        <div className="absolute top-2 right-2 flex flex-col gap-1.5 items-end">
-          <button
-            type="button"
-            onClick={handleToggleWishlist}
-            className="w-7 h-7 rounded-full bg-white/90 backdrop-blur flex items-center justify-center shadow-sm hover:scale-110 active:scale-90 transition-transform"
-            aria-label={wishlisted ? 'Remove from wishlist' : 'Save to wishlist'}
-          >
-            <Heart size={14} className={wishlisted ? 'text-error' : 'text-outline'} fill={wishlisted ? 'currentColor' : 'none'} />
-          </button>
           {discount && (
             <span className="text-[10px] font-bold text-error bg-error-container px-2 py-0.5 rounded-full">
               {discount}% OFF
             </span>
           )}
         </div>
+      )}
 
-        {outOfStock && (
-          <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
-            <span className="text-sm font-bold text-on-surface-variant">Out of stock</span>
-          </div>
-        )}
-      </div>
-
-      <div className="p-3 flex flex-col gap-1 flex-1">
+      <div className="px-3 pb-3 pt-2 flex flex-col gap-1 flex-1">
         <h3 className="text-sm font-semibold text-on-surface-deep line-clamp-2 leading-snug min-h-[2.5rem]">
           {product.name}
         </h3>
