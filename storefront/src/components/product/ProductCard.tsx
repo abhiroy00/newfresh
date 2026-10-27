@@ -61,23 +61,14 @@ export default function ProductCard({ product }: { product: Product }) {
       to={`/product/${product.id}`}
       className="card card-hover group relative flex flex-col overflow-hidden"
     >
-      <div className="relative aspect-square bg-surface-container-low overflow-hidden">
+      <div className="relative aspect-square bg-white overflow-hidden">
         {product.primary_image_url ? (
-          <>
-            <img
-              src={product.primary_image_url}
-              alt=""
-              aria-hidden
-              loading="lazy"
-              className="absolute inset-0 w-full h-full object-cover scale-125 blur-2xl opacity-70"
-            />
-            <img
-              src={product.primary_image_url}
-              alt={product.name}
-              loading="lazy"
-              className="relative w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
-            />
-          </>
+          <img
+            src={product.primary_image_url}
+            alt={product.name}
+            loading="lazy"
+            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
+          />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <Leaf className="text-outline" size={40} />

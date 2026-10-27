@@ -110,12 +110,9 @@ export default function ProductDetail() {
       <div className="grid md:grid-cols-2 gap-8 mb-10">
         {/* Gallery */}
         <div>
-          <div className="relative aspect-square rounded-3xl overflow-hidden bg-surface-container-low mb-3">
+          <div className="relative aspect-square rounded-3xl overflow-hidden bg-white mb-3">
             {imageUrls.length > 0 ? (
-              <>
-                <img src={imageUrls[imageIndex]} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover scale-125 blur-2xl opacity-70" />
-                <img src={imageUrls[imageIndex]} alt={product.name} className="relative w-full h-full object-contain" />
-              </>
+              <img src={imageUrls[imageIndex]} alt={product.name} className="w-full h-full object-contain" />
             ) : (
               <div className="w-full h-full flex items-center justify-center"><Leaf size={64} className="text-outline" /></div>
             )}
