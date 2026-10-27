@@ -140,7 +140,7 @@ export default function ProductDetail() {
                   onClick={() => setImageIndex(i)}
                   className={`w-16 h-16 rounded-xl overflow-hidden border-2 ${i === imageIndex ? 'border-primary' : 'border-transparent'}`}
                 >
-                  <img src={url} alt="" className="w-full h-full object-cover" />
+                  <img src={url} alt="" className="w-full h-full object-contain bg-white" />
                 </button>
               ))}
             </div>

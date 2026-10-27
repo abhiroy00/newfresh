@@ -63,7 +63,7 @@ export default function Cart() {
             <div key={item.id} className="card flex gap-4 p-4">
               <Link to={`/product/${item.product_id}`} className="w-20 h-20 rounded-xl bg-surface-container-low overflow-hidden shrink-0">
                 {item.product?.primary_image_url && (
-                  <img src={item.product.primary_image_url} alt="" className="w-full h-full object-cover" />
+                  <img src={item.product.primary_image_url} alt="" className="w-full h-full object-contain" />
                 )}
               </Link>
               <div className="flex-1 min-w-0 flex flex-col justify-between">

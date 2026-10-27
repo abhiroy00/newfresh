@@ -136,7 +136,7 @@ export default function OrderDetail() {
           {order.items.map((item) => (
             <div key={item.id} className="flex gap-3">
               <div className="w-14 h-14 rounded-xl bg-surface-container-low overflow-hidden shrink-0">
-                {item.product_image_url && <img src={item.product_image_url} alt="" className="w-full h-full object-cover" />}
+                {item.product_image_url && <img src={item.product_image_url} alt="" className="w-full h-full object-contain" />}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-on-surface-deep line-clamp-1">{item.product_name}</p>
