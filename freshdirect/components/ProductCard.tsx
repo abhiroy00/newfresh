@@ -47,11 +47,19 @@ export default function ProductCard({ product, index = 0 }: { product: Product; 
         {/* Image */}
         <View style={styles.imageContainer}>
           {product.image ? (
-            <Image
-              source={{ uri: product.image }}
-              style={styles.image}
-              resizeMode="contain"
-            />
+            <>
+              <Image
+                source={{ uri: product.image }}
+                style={[StyleSheet.absoluteFill, { opacity: 0.7 }]}
+                resizeMode="cover"
+                blurRadius={25}
+              />
+              <Image
+                source={{ uri: product.image }}
+                style={styles.image}
+                resizeMode="contain"
+              />
+            </>
           ) : (
             <View style={[styles.image, styles.imagePlaceholder]}>
               <ShoppingBag size={28} color={Colors.outline} />
@@ -97,7 +105,7 @@ const styles = StyleSheet.create({
   imageContainer: {
     width: '100%',
     aspectRatio: 1,
-    backgroundColor: '#fff',
+    backgroundColor: Colors.surfaceContainerLow,
     position: 'relative',
   },
   image: { width: '100%', height: '100%' },

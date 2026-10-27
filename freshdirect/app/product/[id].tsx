@@ -255,7 +255,15 @@ export default function ProductDetailScreen() {
                 }
               >
                 {imageUrls.map((url) => (
-                  <Image key={url} source={{ uri: url }} style={styles.heroImage} resizeMode="contain" />
+                  <View key={url} style={styles.heroImage}>
+                    <Image
+                      source={{ uri: url }}
+                      style={[StyleSheet.absoluteFill, { opacity: 0.7 }]}
+                      resizeMode="cover"
+                      blurRadius={25}
+                    />
+                    <Image source={{ uri: url }} style={styles.heroImage} resizeMode="contain" />
+                  </View>
                 ))}
               </ScrollView>
               {imageUrls.length > 1 && (
@@ -521,7 +529,7 @@ const styles = StyleSheet.create({
   heroContainer: {
     width: '100%',
     aspectRatio: 1.25,
-    backgroundColor: '#fff',
+    backgroundColor: Colors.surfaceContainerLow,
     position: 'relative',
   },
   heroImage: { width: SCREEN_W, height: '100%' },
