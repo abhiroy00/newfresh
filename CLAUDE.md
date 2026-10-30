@@ -73,6 +73,7 @@ External: Razorpay (payments + webhook), Twilio Verify (SMS OTP), Cloudinary (im
 ### Mobile app notes
 - `EXPO_PUBLIC_API_URL` is the **host only** (`https://api.gmartfresh.com`); `/api/v1` is appended in `lib/api.ts`. Web apps' `VITE_API_BASE_URL` **includes** `/api/v1`.
 - Push: `hooks/usePushNotifications.ts` gets an Expo push token (EAS projectId) and calls `/notifications/register-token`.
+- RN layout gotcha: children of a horizontal `ScrollView` need explicit pixel heights; a `%` height collapses to 0.
 - OTA: `runtimeVersion.policy = appVersion` (1.0.1). Native dependency changes need a new EAS build plus a version bump, because OTA alone won't deliver them.
 
 ---
@@ -168,6 +169,8 @@ Ordered by severity. Verify each one before fixing.
 ## 8. Change log (newest first)
 
 Add one line per change: date, short description, files touched.
+
+- 2026-10-31: Fixed blank hero image on mobile product detail. The blurred-backdrop wrapper (`31a7800`) used `height: '100%'` inside a horizontal ScrollView, which resolved to 0. Slides now use an explicit `HERO_H = SCREEN_W / 1.25`. Files: `freshdirect/app/product/[id].tsx`.
 
 - 2026-10-27: Created this CLAUDE.md after a full codebase review. No code changes.
 - Before this file (from git history): product detail shows full image and renders HTML (mobile); family members on profile and admin; `user_code`; embedded celery beat; daily no-order push; email/password login; Razorpay checkout on storefront; storefront app (shop.gmartfresh.com); support tickets; rider system; wishlist; OTA updates enabled.

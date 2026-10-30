@@ -18,6 +18,10 @@ import { productsApi } from '@/lib/api';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 
 const { width: SCREEN_W } = Dimensions.get('window');
+// Explicit pixel height for hero slides (matches heroContainer's aspectRatio).
+// A percentage height inside the horizontal ScrollView resolves to 0 and the
+// image collapses to nothing.
+const HERO_H = SCREEN_W / 1.25;
 
 interface MineralItem { name: string; value: string; icon?: string }
 interface VitaminItem { name: string; value: string; icon?: string }
@@ -262,7 +266,7 @@ export default function ProductDetailScreen() {
                       resizeMode="cover"
                       blurRadius={25}
                     />
-                    <Image source={{ uri: url }} style={styles.heroImage} resizeMode="contain" />
+                    <Image source={{ uri: url }} style={StyleSheet.absoluteFill} resizeMode="contain" />
                   </View>
                 ))}
               </ScrollView>
@@ -532,7 +536,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surfaceContainerLow,
     position: 'relative',
   },
-  heroImage: { width: SCREEN_W, height: '100%' },
+  heroImage: { width: SCREEN_W, height: HERO_H },
   heroPlaceholder: { alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surfaceContainerLow },
   imageDots: {
     position: 'absolute',
