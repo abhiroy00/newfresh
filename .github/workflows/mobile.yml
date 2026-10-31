@@ -180,3 +180,27 @@ jobs:
             --non-interactive
         env:
           EXPO_PUBLIC_API_URL: https://api.gmartfresh.com
+
+      # Builds installed before app.json's version went 1.0.0 → 1.0.1 (91b8407)
+      # have runtime 1.0.0 and never receive the updates above. Their native
+      # deps are identical to today's (package.json unchanged since 776ca78), so
+      # publish the same bundle for runtime 1.0.0 too. Drop this step once all
+      # users are on a 1.0.1+ build, or if a native dependency is ever added.
+      - name: Publish OTA update for legacy runtime 1.0.0 builds
+        run: |
+          node -e "
+            const fs = require('fs');
+            const cfg = JSON.parse(fs.readFileSync('app.json', 'utf8'));
+            cfg.expo.runtimeVersion = '1.0.0';
+            fs.writeFileSync('app.json', JSON.stringify(cfg, null, 2));
+          "
+          eas update \
+            --channel preview \
+            --message "Deploy ${{ github.sha }} (runtime 1.0.0)" \
+            --non-interactive
+          eas update \
+            --channel production \
+            --message "Deploy ${{ github.sha }} (runtime 1.0.0)" \
+            --non-interactive
+        env:
+          EXPO_PUBLIC_API_URL: https://api.gmartfresh.com
