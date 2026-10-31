@@ -50,7 +50,8 @@
           "locationAlwaysAndWhenInUsePermission": "Allow Gmart to use your location."
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      "./plugins/withReleaseSigning"
     ],
     "experiments": {
       "typedRoutes": true

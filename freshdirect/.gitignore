@@ -26,6 +26,13 @@ yarn-error.log*
 .env.production
 .env*.local
 
+# Signing keys & Google service-account keys — never commit
+*.keystore
+*.jks
+google-services-key.json
+shivlalmaps-*.json
+*service-account*.json
+
 # ─── TypeScript ────────────────────────────────────────────────────────────
 *.tsbuildinfo
 
