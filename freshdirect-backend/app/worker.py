@@ -18,7 +18,7 @@ celery_app.conf.update(
     beat_schedule={
         "daily-no-order-reminder": {
             "task": "send_daily_no_order_reminder",
-            "schedule": crontab(hour=20, minute=0),  # 8 PM IST daily
+            "schedule": crontab(hour=19, minute=30),  # 7:30 PM IST daily (celery timezone is Asia/Kolkata)
         },
     },
 )
