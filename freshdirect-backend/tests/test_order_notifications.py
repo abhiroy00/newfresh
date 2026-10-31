@@ -16,6 +16,11 @@ class OrderMessageTests(unittest.TestCase):
         self.assertIn("#FD-1 (₹488)", body)
         self.assertIn("Mon 2 Nov, 10:00 AM", body)
 
+    def test_slot_without_timezone_is_read_as_utc(self):
+        # A zone-less timestamp from the DB is UTC, not the server's local time.
+        _, body = ns.order_message("placed", "FD-1", delivery_at="2026-11-02T04:30:00")
+        self.assertIn("Mon 2 Nov, 10:00 AM", body)
+
     def test_arriving_includes_rider_name_and_phone(self):
         _, body = ns.order_message("arriving", "FD-1", rider_name="Rahul", rider_phone="+919876543210")
         self.assertIn("Rahul", body)

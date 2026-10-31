@@ -88,9 +88,15 @@ def _fmt_delivery(iso: str | None) -> str | None:
     if not iso:
         return None
     try:
-        d = datetime.fromisoformat(iso).astimezone(IST)
+        d = datetime.fromisoformat(iso)
     except ValueError:
         return None
+    # Delivery times are stored in UTC; a timestamp that comes back without a
+    # zone must not be read as the server's local time (that showed a 10 AM
+    # slot as "4:30 AM" in testing).
+    if d.tzinfo is None:
+        d = d.replace(tzinfo=timezone.utc)
+    d = d.astimezone(IST)
     h = d.hour % 12 or 12
     return f"{d.strftime('%a')} {d.day} {d.strftime('%b')}, {h}:{d.minute:02d} {'AM' if d.hour < 12 else 'PM'}"
 
