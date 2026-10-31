@@ -187,6 +187,11 @@ export default function OrderDetail() {
             <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-white/70">
               <span className="flex items-center gap-1.5"><Calendar size={14} /> {created.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
               <span className="flex items-center gap-1.5"><Clock size={14} /> {created.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
+              {order.estimated_delivery_at && (
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 text-white font-semibold">
+                  Deliver: {new Date(order.estimated_delivery_at).toLocaleString('en-IN', { weekday: 'short', day: '2-digit', month: 'short', hour: 'numeric', minute: '2-digit' })}
+                </span>
+              )}
               <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ring-1 capitalize ${STATUS_COLORS[order.status] || 'bg-gray-200 text-gray-800'}`}>
                 {String(order.status).replace(/_/g, ' ')}
               </span>

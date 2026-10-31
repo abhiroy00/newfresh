@@ -7,12 +7,8 @@ import { CheckCircle2, Package, MapPin } from 'lucide-react-native';
 import { Colors, BorderRadius, Spacing, Shadows } from '@/constants/theme';
 import { useCartStore } from '@/store/cartStore';
 import { ordersApi } from '@/lib/api';
+import { formatDeliveryTime } from '@/lib/deliveryTime';
 
-function formatEta(iso?: string | null) {
-  if (!iso) return null;
-  const d = new Date(iso);
-  return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-}
 
 export default function OrderSuccessScreen() {
   const router = useRouter();
@@ -46,7 +42,7 @@ export default function OrderSuccessScreen() {
   const addressLine = addr
     ? [addr.line1, addr.city].filter(Boolean).join(', ')
     : null;
-  const eta = formatEta(order?.estimated_delivery_at);
+  const eta = formatDeliveryTime(order?.estimated_delivery_at);
 
   return (
     <View style={[styles.container, { paddingBottom: 32 + insets.bottom }]}>
@@ -58,7 +54,7 @@ export default function OrderSuccessScreen() {
 
         <View>
           <Text style={styles.successTitle}>Order Placed!</Text>
-          <Text style={styles.successSub}>Your fresh groceries are on the way</Text>
+          <Text style={styles.successSub}>Your fresh groceries are scheduled for delivery</Text>
         </View>
 
         {/* Order details */}
@@ -90,8 +86,8 @@ export default function OrderSuccessScreen() {
             <>
               <View style={styles.orderCardDivider} />
               <View style={styles.etaRow}>
-                <Text style={styles.etaLabel}>Estimated Delivery</Text>
-                <Text style={styles.etaTime}>by {eta}</Text>
+                <Text style={styles.etaLabel}>Scheduled Delivery</Text>
+                <Text style={styles.etaTime}>{eta}</Text>
               </View>
             </>
           ) : null}

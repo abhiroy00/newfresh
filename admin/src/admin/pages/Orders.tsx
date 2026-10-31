@@ -133,7 +133,7 @@ export default function Orders() {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
             <tr>
-              {['Order ID', 'Customer', 'Total', 'Items', 'Status', 'Date', 'Update', 'View'].map((h) => (
+              {['Order ID', 'Customer', 'Total', 'Items', 'Status', 'Date', 'Delivery', 'Update', 'View'].map((h) => (
                 <th key={h} className="px-4 py-3 text-left">{h}</th>
               ))}
             </tr>
@@ -151,7 +151,7 @@ export default function Orders() {
               ))
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={8} className="text-center py-14 text-gray-400">
+                <td colSpan={9} className="text-center py-14 text-gray-400">
                   <Package size={32} className="mx-auto mb-2 text-gray-300" />
                   {debounced ? `No orders matching "${debounced}"` : 'No orders found'}
                 </td>
@@ -175,6 +175,11 @@ export default function Orders() {
                   </td>
                   <td className="px-4 py-3 text-gray-400 text-xs">
                     {new Date(o.created_at).toLocaleDateString('en-IN')}
+                  </td>
+                  <td className="px-4 py-3 text-xs font-semibold text-gray-700 whitespace-nowrap">
+                    {o.estimated_delivery_at
+                      ? new Date(o.estimated_delivery_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: 'numeric', minute: '2-digit' })
+                      : '—'}
                   </td>
                   <td className="px-4 py-3">
                     <select

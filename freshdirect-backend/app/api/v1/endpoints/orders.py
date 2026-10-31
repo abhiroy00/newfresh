@@ -8,6 +8,7 @@ from app.api.v1.deps import get_current_user, get_current_admin
 from app.models.user import User
 from app.schemas.order import OrderCreate, OrderStatusUpdate, OrderCancelRequest
 from app.services.order_service import create_order, list_orders, cancel_order
+from app.services.delivery_slots import available_slots
 from app.models.order import Order, OrderStatus
 from datetime import datetime, timezone
 
@@ -67,6 +68,11 @@ async def api_create_order(payload: OrderCreate, current_user: User = Depends(ge
             ],
         },
     }
+
+# Declared before "/{order_id}" so the path isn't captured as an order id.
+@router.get("/delivery-slots")
+async def api_delivery_slots(_: User = Depends(get_current_user)):
+    return {"success": True, "data": available_slots()}
 
 @router.get("")
 async def api_list_orders(page: int = Query(1, ge=1), per_page: int = Query(10, ge=1, le=50), current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):

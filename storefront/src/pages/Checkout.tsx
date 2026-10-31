@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { MapPin, Smartphone, CreditCard, Banknote, Check, Plus } from 'lucide-react'
+import { MapPin, Smartphone, CreditCard, Banknote, Check, Plus, Clock } from 'lucide-react'
 import { usersApi, ordersApi } from '@/api/endpoints'
 import { useCartStore } from '@/store/cartStore'
 import { useAuthStore } from '@/store/authStore'
@@ -38,6 +38,22 @@ export default function Checkout() {
     queryFn: async () => (await usersApi.listAddresses()).data.data as Address[],
     enabled: isAuthenticated,
   })
+
+  // Delivery schedule comes from the backend, which owns the 8 PM cutoff rule.
+  const [selectedSlot, setSelectedSlot] = useState('')
+  const { data: slotInfo, refetch: refetchSlots } = useQuery({
+    queryKey: ['delivery-slots'],
+    queryFn: async () => (await ordersApi.deliverySlots()).data.data as {
+      date: string; date_label: string; slots: { value: string; label: string }[]
+    },
+    enabled: isAuthenticated,
+    refetchInterval: 5 * 60_000, // pick up the 8 PM date change on an open tab
+  })
+  useEffect(() => {
+    if (slotInfo && !slotInfo.slots.some((sl) => sl.value === selectedSlot)) {
+      setSelectedSlot(slotInfo.slots[0]?.value || '')
+    }
+  }, [slotInfo, selectedSlot])
 
   useEffect(() => { preloadRazorpay() }, [])
 
@@ -83,7 +99,11 @@ export default function Checkout() {
     try {
       let orderId = pendingOrderId
       if (!orderId) {
-        const { data: orderRes } = await ordersApi.create({ address_id: selectedAddressId, payment_method: selectedMethod.toLowerCase() })
+        const { data: orderRes } = await ordersApi.create({
+          address_id: selectedAddressId,
+          payment_method: selectedMethod.toLowerCase(),
+          ...(slotInfo && selectedSlot ? { delivery_slot: selectedSlot, delivery_date: slotInfo.date } : {}),
+        })
         orderId = orderRes.data.id as string
         setPendingOrderId(orderId)
       }
@@ -102,6 +122,8 @@ export default function Checkout() {
     } catch (e: any) {
       const detail = typeof e.response?.data?.detail === 'string' ? e.response.data.detail : e.response?.data?.message
       toast.error(detail || 'Could not place your order. Please try again.')
+      // 409 = the 8 PM cutoff passed mid-checkout; show the new date's slots.
+      if (e.response?.status === 409) refetchSlots()
       fetchCart()
     } finally {
       setPlacing(false)
@@ -163,6 +185,38 @@ export default function Checkout() {
           </section>
 
           {/* Payment methods */}
+          {slotInfo && (
+            <section>
+              <h2 className="font-bold text-on-surface-deep mb-1 flex items-center gap-2">
+                <Clock size={16} className="text-primary" /> Delivery: {slotInfo.date_label}
+              </h2>
+              <p className="text-xs text-on-surface-variant mb-3">
+                Orders placed before 8:00 PM are delivered tomorrow; after 8:00 PM, the day after tomorrow.
+              </p>
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                {slotInfo.slots.map((sl) => {
+                  const active = sl.value === selectedSlot
+                  return (
+                    <button
+                      key={sl.value}
+                      type="button"
+                      // The slot is saved on the order when it's created.
+                      disabled={!!pendingOrderId}
+                      onClick={() => setSelectedSlot(sl.value)}
+                      className={`py-2.5 rounded-xl border-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed ${
+                        active
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-outline-variant text-on-surface-variant hover:border-primary/50 disabled:opacity-40'
+                      }`}
+                    >
+                      {sl.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </section>
+          )}
+
           <section>
             <h2 className="font-bold text-on-surface-deep mb-3">Payment Method</h2>
             <div className="flex flex-col gap-2.5">

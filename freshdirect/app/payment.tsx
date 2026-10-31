@@ -8,7 +8,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import {
   ChevronLeft, CreditCard, Smartphone, Banknote,
-  Plus, Check, MapPin,
+  Plus, Check, MapPin, Clock,
 } from 'lucide-react-native';
 import { Colors, BorderRadius, Spacing, Shadows } from '@/constants/theme';
 import { useCartStore } from '@/store/cartStore';
@@ -36,6 +36,11 @@ export default function PaymentScreen() {
   const [pendingOrder, setPendingOrder] = useState<{
     id: string; subtotal: number; delivery_fee: number; total: number; count: number;
   } | null>(null);
+  // Delivery schedule comes from the backend, which owns the 8 PM cutoff rule.
+  const [slotInfo, setSlotInfo] = useState<{
+    date: string; date_label: string; slots: { value: string; label: string }[];
+  } | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<string>('');
   const cart = useCartStore();
   const { totalItems, clearCart, fetchCart, items } = cart;
   const subtotal = pendingOrder?.subtotal ?? cart.subtotal;
@@ -54,9 +59,23 @@ export default function PaymentScreen() {
     preloadRazorpay();
   }, []);
 
+  const loadSlots = useCallback(async () => {
+    try {
+      const { data } = await ordersApi.deliverySlots();
+      const info = data.data;
+      setSlotInfo(info);
+      setSelectedSlot((prev) =>
+        info.slots.some((sl: any) => sl.value === prev) ? prev : (info.slots[0]?.value || ''));
+    } catch (e) {
+      // Ordering still works without it — the server falls back to the first slot.
+      console.warn('Failed to load delivery slots:', e);
+    }
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       let active = true;
+      loadSlots();
       (async () => {
         // Refresh the cart alongside addresses rather than inside handlePay —
         // same freshness, but off the critical path between tap and payment.
@@ -77,7 +96,7 @@ export default function PaymentScreen() {
         setSelectedAddress(def ? def.id : '');
       })();
       return () => { active = false; };
-    }, [fetchCart])
+    }, [fetchCart, loadSlots])
   );
 
   const handlePay = async () => {
@@ -121,6 +140,9 @@ export default function PaymentScreen() {
         const { data: orderRes } = await ordersApi.create({
           address_id: selectedAddress,
           payment_method: selected,
+          ...(slotInfo && selectedSlot
+            ? { delivery_slot: selectedSlot, delivery_date: slotInfo.date }
+            : {}),
         });
         const created = orderRes.data;
         order = created;
@@ -169,7 +191,11 @@ export default function PaymentScreen() {
         ? data.detail
         : (data?.detail?.[0]?.msg || data?.message || '');
       
-      if (detail.toLowerCase().includes('cart') && detail.toLowerCase().includes('empty')) {
+      if (e.response?.status === 409) {
+        // 8 PM cutoff passed while checking out — show the new date's slots.
+        appAlert('Delivery date changed', detail);
+        loadSlots();
+      } else if (detail.toLowerCase().includes('cart') && detail.toLowerCase().includes('empty')) {
         appAlert('Empty Cart', 'Your cart is empty. Please add items before checking out.');
         router.back();
       } else if (detail.toLowerCase().includes('payment') && detail.toLowerCase().includes('failed')) {
@@ -238,6 +264,35 @@ export default function PaymentScreen() {
             <Text style={styles.totalValue}>{`\u20b9${total}`}</Text>
           </View>
         </View>
+
+        {/* Delivery Slot */}
+        {slotInfo && (
+          <View style={styles.slotCard}>
+            <View style={styles.slotHeader}>
+              <Clock size={16} color={Colors.primary} />
+              <Text style={styles.slotTitle}>Delivery: {slotInfo.date_label}</Text>
+            </View>
+            <Text style={styles.slotHint}>
+              Orders placed before 8:00 PM are delivered tomorrow; after 8:00 PM, the day after tomorrow.
+            </Text>
+            <View style={styles.slotGrid}>
+              {slotInfo.slots.map((sl) => {
+                const active = sl.value === selectedSlot;
+                return (
+                  <Pressable
+                    key={sl.value}
+                    style={[styles.slotChip, active && styles.slotChipActive, !!pendingOrder && !active && { opacity: 0.4 }]}
+                    // The slot is saved on the order when it's created.
+                    disabled={!!pendingOrder}
+                    onPress={() => setSelectedSlot(sl.value)}
+                  >
+                    <Text style={[styles.slotChipText, active && styles.slotChipTextActive]}>{sl.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        )}
 
         {/* Payment Methods */}
         <Text style={styles.sectionLabel}>Payment Method</Text>
@@ -339,6 +394,22 @@ const styles = StyleSheet.create({
   summaryValue: { fontSize: 14, fontWeight: '600', color: Colors.onSurface },
   totalLabel: { fontSize: 16, fontWeight: '800', color: Colors.onSurfaceDeep },
   totalValue: { fontSize: 18, fontWeight: '800', color: Colors.primary },
+  slotCard: {
+    backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.xl,
+    padding: Spacing.md, marginBottom: Spacing.lg, ...Shadows.card,
+  },
+  slotHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  slotTitle: { fontSize: 15, fontWeight: '700', color: Colors.onSurfaceDeep },
+  slotHint: { fontSize: 12, color: Colors.onSurfaceVariant, marginTop: 4, marginBottom: Spacing.sm },
+  slotGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  slotChip: {
+    width: '31%', alignItems: 'center', paddingVertical: 10,
+    borderRadius: BorderRadius.lg, borderWidth: 1.5, borderColor: Colors.outlineVariant,
+    backgroundColor: Colors.surfaceContainerLow,
+  },
+  slotChipActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryContainer },
+  slotChipText: { fontSize: 13, fontWeight: '600', color: Colors.onSurfaceVariant },
+  slotChipTextActive: { color: Colors.onPrimaryContainer, fontWeight: '700' },
   sectionLabel: {
     fontSize: 13, fontWeight: '700', color: Colors.onSurfaceVariant,
     textTransform: 'uppercase', letterSpacing: 1,

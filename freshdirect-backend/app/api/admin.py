@@ -167,6 +167,7 @@ async def admin_list_orders(
         items.append({
             "id": o.id, "order_number": o.order_number, "status": o.status.value if hasattr(o.status, 'value') else o.status,
             "total": o.total, "created_at": o.created_at.isoformat() if o.created_at else None,
+            "estimated_delivery_at": o.estimated_delivery_at.isoformat() if o.estimated_delivery_at else None,
             "items": [{"id": i.id, "product_name": i.product_name, "quantity": i.quantity} for i in o.items],
             "user": {"name": o.user.name, "email": o.user.email, "phone": o.user.phone} if o.user else None,
         })
@@ -194,6 +195,7 @@ async def admin_get_order(order_id: str, db: AsyncSession = Depends(get_db), _: 
         "status": o.status.value if hasattr(o.status, 'value') else o.status,
         "total": o.total, "subtotal": o.subtotal, "delivery_fee": o.delivery_fee,
         "created_at": o.created_at.isoformat() if o.created_at else None,
+        "estimated_delivery_at": o.estimated_delivery_at.isoformat() if o.estimated_delivery_at else None,
         "rider_id": o.rider_id,
         "items": [{"id": i.id, "product_name": i.product_name, "quantity": i.quantity, "price_at_purchase": i.unit_price, "product": {"name": i.product_name, "images": [i.product_image_url] if i.product_image_url else []}} for i in o.items],
         "user": {"name": o.user.name, "email": o.user.email, "phone": o.user.phone} if o.user else None,
@@ -271,7 +273,7 @@ async def admin_get_user(user_id: str, db: AsyncSession = Depends(get_db), _: Us
         "id": u.id, "user_code": u.user_code, "name": u.name, "email": u.email, "phone": u.phone,
         "is_admin": u.is_admin, "orders_count": order_count,
         "family_members": [
-            {"id": m.id, "name": m.name, "age": m.age, "weight_kg": m.weight_kg} for m in family_members
+            {"id": m.id, "name": m.name, "age": m.age, "weight_kg": m.weight_kg, "gender": m.gender} for m in family_members
         ],
         "created_at": u.created_at.isoformat() if u.created_at else None,
     }

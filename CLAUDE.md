@@ -33,7 +33,7 @@ Admin/Rider ───┘                                  │
                                                   ├── PostgreSQL (DATABASE_URL, RDS)
                                                   ├── Redis container (db0 cache/OTP/JWT blacklist, db1 broker, db2 results)
                                                   └── celery container: worker -B (beat embedded)
-                                                         └── daily 20:00 IST "no order today" push
+                                                         └── daily 19:30 IST "no order today" push
 External: Razorpay (payments + webhook), Twilio Verify (SMS OTP), Cloudinary (images), Expo Push API.
 ```
 
@@ -50,7 +50,7 @@ External: Razorpay (payments + webhook), Twilio Verify (SMS OTP), Cloudinary (im
 - `api/v1/endpoints/extended.py`: `/api/v1/admin/...` for extended product fields, bulk CSV price upload, schedule price, price history, stock thresholds, services CRUD, `AppSettings` (app/payment/tax/delivery config), delivery zones.
 - `services/`: business logic (auth, cart, order, payment, product, notification, wishlist).
 - `models/`: User (with `user_code` like `G-1234`, `is_admin`, `is_rider`, `password_hash`), Address, FamilyMember, Category, Product (+ JSON extended fields), ProductImage, Carousel, Service, Cart/CartItem, Order/OrderItem (enum status, address JSON snapshot, Razorpay ids, `rider_id`), FCMToken (actually stores Expo push tokens), SupportTicket/SupportMessage, WishlistItem, AppSettings, DeliveryZone. Note: `Service`, `AppSettings`, `DeliveryZone` are **not** exported from `models/__init__.py`. They're registered only because other modules import them (product.py defines Service; settings.py is imported by extended.py). Keep that in mind for Alembic autogenerate.
-- `worker.py` / `tasks.py`: Celery app (`Asia/Kolkata`), tasks `send_order_push` (defined, **never dispatched**) and `send_daily_no_order_reminder` (beat, 20:00 IST, Hinglish copy).
+- `worker.py` / `tasks.py`: Celery app (`Asia/Kolkata`), tasks `send_order_push` (defined, **never dispatched**) and `send_daily_no_order_reminder` (beat, 19:30 IST, Hinglish copy).
 
 ### Response conventions (don't break these)
 - Customer API (`/api/v1/*` from `router.py`): `{"success": true, "data": ..., "message"?: ...}`. Product list adds `total/page/per_page/pages`.
@@ -64,11 +64,11 @@ External: Razorpay (payments + webhook), Twilio Verify (SMS OTP), Cloudinary (im
 - On a 401, storefront and mobile try one refresh and clear the session **only** when the refresh itself returns 400/401, so network blips don't log users out. Storefront fires the `gmart:logout` window event so the cart/auth stores reset.
 
 ### Checkout and payment flow
-1. `POST /orders {address_id, payment_method, notes}` validates stock, snapshots the address, decrements stock, clears the cart, and creates a `pending` order (`FD-XXXXXXXX`, ETA +4 h).
+1. `POST /orders {address_id, payment_method, notes}` validates stock, snapshots the address, decrements stock, clears the cart, and creates a `pending` order (`FD-XXXXXXXX`). Delivery is **scheduled**: `services/delivery_slots.py` sets it to tomorrow if ordered before 20:00 IST, otherwise the day after tomorrow, at an hourly slot 09:00 to 20:00. The client gets slots from `GET /orders/delivery-slots` and sends `delivery_slot` + `delivery_date`. If the date it showed has passed the cutoff, the server returns 409. A missing slot means 09:00 (older builds). It's stored in `estimated_delivery_at`.
 2. Online payment: `POST /payments/create-order {order_id}` creates a Razorpay order, or reuses the existing `razorpay_order_id` on retry. The amount always comes from the DB (minimum 100 paise). Then `POST /payments/verify` checks the signature against **this order's** razorpay_order_id. It's idempotent and sets the order to `paid` + `confirmed`.
 3. Webhook `POST /payments/webhook` (`payment.captured`) is the backup path; it needs `RAZORPAY_WEBHOOK_SECRET` (returns 503 if unset).
 4. Delivery fee = `DELIVERY_FEE` (49) unless subtotal ≥ `FREE_DELIVERY_THRESHOLD` (499). Both come from **env settings**, and the storefront hardcodes 499 in `src/lib/constants.ts`.
-5. Tests: `freshdirect-backend/tests/test_payment_checkout.py` and `test_cart_unavailable.py` (unittest, mocks DB). See `docs/razorpay-checkout.md`.
+5. Tests: `freshdirect-backend/tests/test_payment_checkout.py`, `test_cart_unavailable.py`, `test_delivery_slots.py` (unittest, mocks DB). See `docs/razorpay-checkout.md`.
 
 ### Mobile app notes
 - `EXPO_PUBLIC_API_URL` is the **host only** (`https://api.gmartfresh.com`); `/api/v1` is appended in `lib/api.ts`. Web apps' `VITE_API_BASE_URL` **includes** `/api/v1`.
@@ -116,8 +116,8 @@ cd freshdirect && npm ci && npx expo start # type-check: npx tsc --noEmit
 ```
 
 ### Migrations
-- Alembic head is currently **`add_family_members`**. The chain is linear except for one merge (`5d7942d7e6d2`). Revision ids are a mix of hex and descriptive names. Always set `down_revision` to the current head.
-- Chain: `273d831cd4c1` → `add_phase2_3_fields` → {`add_carousels_table` → `drop_product_rating_review` → `a1b2c3d4e5f6` (password_hash) → `b2c3d4e5f6a7` (riders) → `c3d4e5f6a7b8` (service category_id)} + {`add_storage_preparation`} → merge `5d7942d7e6d2` → `d4e5f6a7b8c9` (support) → `e5f6a7b8c9d0` (wishlist) → `add_user_code` → `add_family_members`.
+- Alembic head is currently **`add_family_member_gender`**. The chain is linear except for one merge (`5d7942d7e6d2`). Revision ids are a mix of hex and descriptive names. Always set `down_revision` to the current head.
+- Chain: `273d831cd4c1` → `add_phase2_3_fields` → {`add_carousels_table` → `drop_product_rating_review` → `a1b2c3d4e5f6` (password_hash) → `b2c3d4e5f6a7` (riders) → `c3d4e5f6a7b8` (service category_id)} + {`add_storage_preparation`} → merge `5d7942d7e6d2` → `d4e5f6a7b8c9` (support) → `e5f6a7b8c9d0` (wishlist) → `add_user_code` → `add_family_members` → `add_family_member_gender`.
 - Prod runs `alembic upgrade head` automatically on deploy, so migrations must be safe on existing data (backfill before adding NOT NULL).
 - Postgres enums: SQLAlchemy binds enum **names** (uppercase, e.g. `PENDING`) for `Enum(PyEnum)` columns. See commit `ba075f5`; match that when writing enum migrations.
 - `create_carousel_table.py` is a legacy `create_all` helper. Don't use it; use Alembic.
@@ -176,6 +176,11 @@ Ordered by severity. Verify each one before fixing.
 ## 8. Change log (newest first)
 
 Add one line per change: date, short description, files touched.
+
+- 2026-10-31: Three requested features:
+  - **Family members:** new nullable `gender` column (male/female/other; migration `add_family_member_gender`; a plain string, not a PG enum). The mobile Edit Profile has labelled Age (yrs) / Weight (kg) inputs with unit suffixes, gender chips (required for new members), a "Total: N members" badge, and rows like "Female • Age 30 yrs • Weight 60 kg". Admin Users shows gender. Files: `models/user.py`, `schemas/user.py`, `api/admin.py`, `freshdirect/app/profile-edit.tsx`, `freshdirect/lib/api.ts`, `admin/src/admin/pages/Users.tsx`.
+  - **Scheduled delivery slots** (see Checkout flow): `services/delivery_slots.py`, `GET /orders/delivery-slots`, `OrderCreate.delivery_slot/delivery_date`. Slot pickers in the mobile `app/payment.tsx` and storefront `pages/Checkout.tsx`. `lib/deliveryTime.ts` shows date + time on order success, track and order detail. Admin Orders list/detail show the delivery time.
+  - **Daily no-order reminder** moved 20:00 → 19:30 IST (`app/worker.py`).
 
 - 2026-10-31: **Runtime 1.0.0 builds were stuck on the Sep 11 bundle.** u.expo.dev showed the latest 1.0.0 update was dated 2026-09-11, while 1.0.1 had today's. `mobile.yml` now also publishes every OTA with `runtimeVersion` overridden to `1.0.0` (`bc81748`). That's safe because `package.json` is unchanged since `776ca78`. **Remove that step if a native dependency is added** (an old binary would crash on it), or once all users are on 1.0.1+.
 - 2026-10-31: Backend deploy for `99acab3` was killed after 603 s by ssh-action's default 10 min `command_timeout`. Set `command_timeout: 30m` in `.github/workflows/backend.yml`. The redeploy (`948ad78`) then failed at rsync because the server was overloaded (health checks took 7 to 25 s), most likely by the orphaned build. Changed the build-cache prune to `--keep-storage 2GB` so deploys reuse the pip layer.

@@ -10,6 +10,7 @@ import {
 import { Colors, BorderRadius, Spacing, Shadows } from '@/constants/theme';
 import { ordersApi } from '@/lib/api';
 import { appAlert } from '@/lib/appAlert';
+import { formatDeliveryTime } from '@/lib/deliveryTime';
 import { useAuthStore } from '@/store/authStore';
 import { useRazorpay, PAYMENT_CANCELLED } from '@/hooks/useRazorpay';
 
@@ -179,6 +180,15 @@ export default function OrderDetailScreen() {
             </View>
           </View>
 
+          {!['delivered', 'cancelled', 'refunded'].includes(order.status) && formatDeliveryTime(order.estimated_delivery_at) && (
+            <View style={styles.slotRow}>
+              <Clock size={14} color={Colors.primary} />
+              <Text style={styles.slotText}>
+                Scheduled delivery: <Text style={styles.slotBold}>{formatDeliveryTime(order.estimated_delivery_at)}</Text>
+              </Text>
+            </View>
+          )}
+
           {['confirmed', 'packing', 'out_for_delivery'].includes(order.status) && (
             <Pressable
               style={styles.trackBtn}
@@ -332,6 +342,13 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
   },
   trackBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  slotRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: Colors.surfaceContainerLow, borderRadius: BorderRadius.lg,
+    paddingHorizontal: Spacing.sm, paddingVertical: 8, marginTop: Spacing.md,
+  },
+  slotText: { fontSize: 13, color: Colors.onSurface },
+  slotBold: { fontWeight: '800', color: Colors.primary },
   cancelBtn: {
     flexDirection: 'row',
     alignItems: 'center',

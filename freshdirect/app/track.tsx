@@ -10,6 +10,7 @@ import {
 } from 'lucide-react-native';
 import { Colors, BorderRadius, Spacing, Shadows } from '@/constants/theme';
 import { ordersApi } from '@/lib/api';
+import { formatDeliveryTime } from '@/lib/deliveryTime';
 
 const STATUS_ORDER = ['pending', 'confirmed', 'packing', 'out_for_delivery', 'delivered'];
 
@@ -26,11 +27,6 @@ function getInitials(name?: string | null) {
   return name.trim().split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
 }
 
-function formatETA(iso?: string | null) {
-  if (!iso) return null;
-  const d = new Date(iso);
-  return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-}
 
 export default function TrackScreen() {
   const router = useRouter();
@@ -92,7 +88,7 @@ export default function TrackScreen() {
 
   const currentIdx = STATUS_ORDER.indexOf(order.status);
   const rider = order.rider;
-  const eta = formatETA(order.estimated_delivery_at);
+  const eta = formatDeliveryTime(order.estimated_delivery_at);
 
   return (
     <View style={styles.container}>
@@ -117,7 +113,7 @@ export default function TrackScreen() {
             <View style={styles.etaRow}>
               <Clock size={14} color={Colors.primary} />
               <Text style={styles.etaText}>
-                Estimated delivery by <Text style={styles.etaBold}>{eta}</Text>
+                Scheduled delivery: <Text style={styles.etaBold}>{eta}</Text>
               </Text>
             </View>
           )}

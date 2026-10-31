@@ -21,6 +21,11 @@ class OrderCreate(BaseModel):
     address_id: str
     payment_method: PaymentMethod = PaymentMethod.UPI
     notes: Optional[str] = None
+    # Scheduled delivery: "HH:00" between 09:00 and 20:00, plus the date the
+    # client showed (YYYY-MM-DD) so a cutoff passing mid-checkout is caught.
+    # Both optional so older app/web builds keep working (first slot is used).
+    delivery_slot: Optional[str] = None
+    delivery_date: Optional[str] = None
 
 
 class OrderOut(BaseModel):
