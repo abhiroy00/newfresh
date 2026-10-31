@@ -70,8 +70,8 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           timeout: 300s
           # `timeout` is only the SSH connect timeout. The script itself is cut
-          # off at command_timeout (default 10m), and a cold rebuild (build
-          # cache is pruned below) of the api + celery images can exceed that.
+          # off at command_timeout (default 10m), and a cold rebuild of the
+          # api + celery images (e.g. after requirements change) can exceed that.
           command_timeout: 30m
           script: |
             set -e
@@ -114,8 +114,13 @@ jobs:
 
             # Superseded images and build cache pile up across deploys until the
             # disk fills up mid-build — clear them out before building, not just after.
+            # Keep a bounded build cache, though: wiping it all (-af) forced a full
+            # pip reinstall every deploy, which overloads this small instance and
+            # ran past the SSH command timeout.
             sudo docker image prune -af
-            sudo docker builder prune -af
+            # (--keep-storage is deprecated on newer Docker; fall back to a full
+            # prune rather than failing the deploy under `set -e`.)
+            sudo docker builder prune -f --keep-storage 2GB || sudo docker builder prune -af
 
             sudo docker compose -f docker-compose.prod.yml build
             sudo docker compose -f docker-compose.prod.yml up -d --remove-orphans

@@ -77,6 +77,7 @@ External: Razorpay (payments + webhook), Twilio Verify (SMS OTP), Cloudinary (im
 - Axios responses: the body is `res.data`, and the payload is `res.data.data`.
 - RN layout gotcha: children of a horizontal `ScrollView` need explicit pixel heights; a `%` height collapses to 0.
 - OTA: `runtimeVersion.policy = appVersion` (1.0.1). Native dependency changes need a new EAS build plus a version bump, because OTA alone won't deliver them.
+- Check what a runtime receives: `curl -H 'expo-platform: android' -H 'expo-runtime-version: 1.0.0' -H 'expo-channel-name: production' -H 'expo-protocol-version: 1' -H 'accept: multipart/mixed' https://u.expo.dev/b6905e08-88ee-4257-ae81-1d5b6318baf3 | grep -o '"createdAt":"[^"]*"'`
 - **Bumping `expo.version` in app.json cuts off every installed build from future OTA updates** (the runtime changes). Only bump it together with a new APK/AAB that users actually install. Builds from 1.0.0 are stuck on the original code.
 
 ---
@@ -147,7 +148,7 @@ Ordered by severity. Verify each one before fixing.
 
 - Single EC2 host + Docker Compose instead of ECS: cost and simplicity. Celery beat runs **embedded** (`worker -B`) because there's a single worker, so no duplicate schedules (`0560383`).
 - TLS terminates at the ALB (ACM). EC2 serves plain HTTP; nginx serves the SPAs on :80.
-- Deploys prune Docker images/build cache **before** building (the disk filled up, `82db0c6`).
+- Deploys prune Docker images **before** building (the disk filled up, `82db0c6`). Build cache is bounded with `docker builder prune --keep-storage 2GB`, not wiped: a full wipe forced a cold pip reinstall each deploy, which overloaded the t3.small and hit the SSH timeout (2026-10-31).
 - `get_db` commits per request, so endpoints use `flush()`, not `commit()`. The one exception: a change that must survive an error response (e.g. `create_order` purging unavailable cart items) commits explicitly before raising, because `get_db` rolls back on exceptions.
 - Deactivated products are removed from carts automatically (`_purge_unavailable`) instead of blocking checkout.
 - Cart/order serialization returns plain dicts, never ORM objects, to avoid recursion and `MissingGreenlet` in async.
@@ -176,7 +177,8 @@ Ordered by severity. Verify each one before fixing.
 
 Add one line per change: date, short description, files touched.
 
-- 2026-10-31: Backend deploy for `99acab3` was killed after 603 s by ssh-action's default 10 min `command_timeout`. Set `command_timeout: 30m` in `.github/workflows/backend.yml` and redeployed.
+- 2026-10-31: **Runtime 1.0.0 builds were stuck on the Sep 11 bundle.** u.expo.dev showed the latest 1.0.0 update was dated 2026-09-11, while 1.0.1 had today's. `mobile.yml` now also publishes every OTA with `runtimeVersion` overridden to `1.0.0` (`bc81748`). That's safe because `package.json` is unchanged since `776ca78`. **Remove that step if a native dependency is added** (an old binary would crash on it), or once all users are on 1.0.1+.
+- 2026-10-31: Backend deploy for `99acab3` was killed after 603 s by ssh-action's default 10 min `command_timeout`. Set `command_timeout: 30m` in `.github/workflows/backend.yml`. The redeploy (`948ad78`) then failed at rsync because the server was overloaded (health checks took 7 to 25 s), most likely by the orphaned build. Changed the build-cache prune to `--keep-storage 2GB` so deploys reuse the pip layer.
 - 2026-10-31: **Orders blocked by deactivated products.** A cart item whose product an admin deactivated stayed in the cart (counted in the total), and `POST /orders` then failed every time with "Product <uuid> no longer available". Now `cart_service._purge_unavailable` removes such items on every `GET /cart` (response gains additive `removed_unavailable: [names]`), and `create_order` purges, **commits**, then raises a 400 naming the items. Mobile and storefront refresh the cart after a failed order and tell the customer what was removed. Tests: `tests/test_cart_unavailable.py`. Files: `freshdirect-backend/app/services/{cart,order}_service.py`, `freshdirect/store/cartStore.ts`, `freshdirect/app/payment.tsx`, `storefront/src/store/cartStore.ts`, `storefront/src/types/index.ts`.
 - 2026-10-31: Mobile product detail: removed the blurred backdrop copy behind the hero image (one sharp `contain` image on white, matching the storefront's `dd64c98`). `freshdirect/app/product/[id].tsx`. Also found why a user's phone still showed the original screen (header over image, badges on image, raw HTML description): its APK is runtime **1.0.0**, and every OTA since the bump to 1.0.1 (`91b8407`, 2026-10-16) targets 1.0.1, so they never reach it. It needs a new APK.
 - 2026-10-31: Mobile app bug sweep (code review + tsc + `expo export` bundle; not run on a device). Fixed:
