@@ -103,7 +103,7 @@ def _fmt_delivery(iso: str | None) -> str | None:
 
 def order_message(event: str, order_number: str, *, total: float | None = None,
                   delivery_at: str | None = None, rider_name: str | None = None,
-                  rider_phone: str | None = None, **_) -> tuple[str, str]:
+                  rider_phone: str | None = None, otp: str | None = None, **_) -> tuple[str, str]:
     """Title/body for an order lifecycle push. Pure, so it's unit-testable."""
     slot = _fmt_delivery(delivery_at)
     amount = f" (₹{total:g})" if total is not None else ""
@@ -116,7 +116,9 @@ def order_message(event: str, order_number: str, *, total: float | None = None,
         who = rider_name or "Our delivery partner"
         body = f"{who} is on the way with order #{order_number} and will reach you in about 10–15 minutes."
         if rider_phone:
-            body += f" Contact: {rider_phone}"
+            body += f" Contact: {rider_phone}."
+        if otp:
+            body += f" Share OTP {otp} with the delivery partner."
         return "Arriving soon 🚴", body
     if event == "delivered":
         return "Order delivered ✅", f"Order #{order_number} was delivered successfully. Enjoy your fresh groceries!"

@@ -9,12 +9,13 @@ import ErrorState from '@/components/ui/ErrorState'
 import type { Order } from '@/types'
 
 const STATUS_STYLE: Record<string, string> = {
-  PENDING: 'bg-surface-container-high text-on-surface-variant',
-  CONFIRMED: 'bg-primary-fixed text-primary',
-  PACKED: 'bg-primary-fixed text-primary',
-  OUT_FOR_DELIVERY: 'bg-accent-orange/15 text-accent-orange',
-  DELIVERED: 'bg-success-container text-success',
-  CANCELLED: 'bg-error-container text-error',
+  pending: 'bg-surface-container-high text-on-surface-variant',
+  confirmed: 'bg-primary-fixed text-primary',
+  packing: 'bg-primary-fixed text-primary',
+  out_for_delivery: 'bg-accent-orange/15 text-accent-orange',
+  delivered: 'bg-success-container text-success',
+  cancelled: 'bg-error-container text-error',
+  refunded: 'bg-surface-container-high text-on-surface-variant',
 }
 
 export default function Orders() {

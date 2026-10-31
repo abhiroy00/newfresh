@@ -74,6 +74,8 @@ async def api_payment_webhook(request: Request, db: AsyncSession = Depends(get_d
                 order.payment_status = PaymentStatus.PAID
                 if order.status == OrderStatus.PENDING:
                     order.status = OrderStatus.CONFIRMED
+                    from app.services.order_service import record_status
+                    record_status(order, OrderStatus.CONFIRMED)
                 order.razorpay_payment_id = rzp_payment_id
                 await db.flush()
                 # Webhook path for payments the app never verified (e.g. app

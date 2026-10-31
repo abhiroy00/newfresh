@@ -119,8 +119,8 @@ cd freshdirect && npm ci && npx expo start # type-check: npx tsc --noEmit
 ```
 
 ### Migrations
-- Alembic head is currently **`add_order_arriving_notified`**. The chain is linear except for one merge (`5d7942d7e6d2`). Revision ids are a mix of hex and descriptive names. Always set `down_revision` to the current head.
-- Chain: `273d831cd4c1` → `add_phase2_3_fields` → {`add_carousels_table` → `drop_product_rating_review` → `a1b2c3d4e5f6` (password_hash) → `b2c3d4e5f6a7` (riders) → `c3d4e5f6a7b8` (service category_id)} + {`add_storage_preparation`} → merge `5d7942d7e6d2` → `d4e5f6a7b8c9` (support) → `e5f6a7b8c9d0` (wishlist) → `add_user_code` → `add_family_members` → `add_family_member_gender` → `add_order_arriving_notified`.
+- Alembic head is currently **`add_order_tracking_fields`**. The chain is linear except for one merge (`5d7942d7e6d2`). Revision ids are a mix of hex and descriptive names. Always set `down_revision` to the current head.
+- Chain: `273d831cd4c1` → `add_phase2_3_fields` → {`add_carousels_table` → `drop_product_rating_review` → `a1b2c3d4e5f6` (password_hash) → `b2c3d4e5f6a7` (riders) → `c3d4e5f6a7b8` (service category_id)} + {`add_storage_preparation`} → merge `5d7942d7e6d2` → `d4e5f6a7b8c9` (support) → `e5f6a7b8c9d0` (wishlist) → `add_user_code` → `add_family_members` → `add_family_member_gender` → `add_order_arriving_notified` → `add_order_tracking_fields`.
 - Prod runs `alembic upgrade head` automatically on deploy, so migrations must be safe on existing data (backfill before adding NOT NULL).
 - Postgres enums: SQLAlchemy binds enum **names** (uppercase, e.g. `PENDING`) for `Enum(PyEnum)` columns. See commit `ba075f5`; match that when writing enum migrations.
 - `create_carousel_table.py` is a legacy `create_all` helper. Don't use it; use Alembic.
@@ -167,6 +167,7 @@ Ordered by severity. Verify each one before fixing.
 ## 7. Pending tasks / roadmap
 
 - [ ] Fix known issues 1–3 (highest value: security, then broken admin editing).
+- [ ] Not built yet: live rider GPS location / map (needs a native map module → new Play Store build), rating + reorder on the website, instructions at website checkout.
 - [ ] Wire `AppSettings` into cart/order totals, or remove the unused settings UI.
 - [ ] Refunds via the Razorpay API on cancel.
 - [ ] Celery beat task to apply scheduled prices.
@@ -179,6 +180,16 @@ Ordered by severity. Verify each one before fixing.
 ## 8. Change log (newest first)
 
 Add one line per change: date, short description, files touched.
+
+- 2026-11-01 (**local only, not pushed**): **Tracking fix + Zepto/Swiggy-style delivery features.**
+  - **Bug:** "Track Order" in My Orders (and Help) opened `/track` without an order id, so it always showed "Couldn't load tracking info". It now passes the id. Without one, it tracks the latest active order. The screen auto-refreshes every 15 s while the order is active, and Track shows for every active status.
+  - **Delivery OTP:** new `orders.delivery_otp`, 4 digits, generated at order creation. The customer sees it (app order/track screens, website order page, and the "Arriving soon" push) only while the order is active (`visible_delivery_otp`). `PATCH /rider/orders/{id}/status` → delivered requires `otp`; a wrong or missing code is a 400. Riders get only `otp_required`, never the code. Admin status changes are the override. Orders created before this have no OTP and skip the check. Rider portal: `admin/src/admin/components/DeliverWithOtp.tsx` on RiderOrders and RiderDashboard.
+  - **Timeline:** new `orders.status_history` JSON, appended via `order_service.record_status` at every transition (create, payment confirm via verify or webhook, admin/rider status change, customer/admin cancel). `build_timeline()` is used by customer order detail (`timeline`) and the admin timeline endpoint (the old one faked every step with created_at). Old orders get a derived timeline. App, website and admin show the time per step.
+  - **Rating:** `orders.rating` (1–5), `rating_comment`, `rated_at`. `POST /orders/{id}/rate` works only once delivered. App order detail has the stars + comment UI. Admin order detail and list show the rating.
+  - **Reorder:** `POST /orders/{id}/reorder` re-adds in-stock items, capped at stock, and returns `added` / `skipped` names. App: buttons in order detail and on past orders in My Orders.
+  - **Delivery instructions:** checkout chips (Leave at the door / Call on arrival / Don't ring the bell / Hand over to security) + a free-text note, saved in `orders.notes`. Shown to the rider (portal), admin and customer.
+  - **Website bug fixed:** storefront compared statuses in UPPERCASE (`'PENDING'`, `'PACKED'`) while the API returns lowercase (`'pending'`, `'packing'`), so its order timeline never advanced, cancelled orders didn't show as cancelled, and Cancel never appeared. Types and pages are now lowercase. Paid orders aren't self-cancellable on web either.
+  - Verified: 37 unit tests; local end-to-end against the real app, 24/24 tracking checks + 12/12 notification checks. **Deploy note:** ship backend + app OTA + storefront together, because the backend starts requiring the OTP as soon as it's live (the "Arriving soon" push also carries the OTP, and admin can always override).
 
 - 2026-11-01 (**local only, not pushed**): **Order notifications** (Expo push, Android channel `orders`, HIGH importance):
   - **Placed:** COD on order creation; online only after payment succeeds (`verify_payment` or webhook), so abandoned payments get nothing.

@@ -1,6 +1,6 @@
 ﻿import React, { useState, useCallback, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator,
+  View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, TextInput,
 } from 'react-native';
 import { appAlert } from '@/lib/appAlert';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,6 +24,10 @@ const PAYMENT_METHODS = [
 
 const ONLINE_PAYMENT_METHODS = ['upi', 'card'];
 
+// Quick delivery instructions (Zepto/Swiggy style); saved as the order's
+// notes, which the rider sees in their portal.
+const INSTRUCTION_OPTIONS = ['Leave at the door', 'Call on arrival', "Don't ring the bell", 'Hand over to security'];
+
 export default function PaymentScreen() {
   const router = useRouter();
   const [selected, setSelected] = useState('upi');
@@ -41,6 +45,10 @@ export default function PaymentScreen() {
     date: string; date_label: string; slots: { value: string; label: string }[];
   } | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<string>('');
+  const [instructions, setInstructions] = useState<string[]>([]);
+  const [instructionNote, setInstructionNote] = useState('');
+  const toggleInstruction = (opt: string) =>
+    setInstructions((cur) => (cur.includes(opt) ? cur.filter((o) => o !== opt) : [...cur, opt]));
   const cart = useCartStore();
   const { totalItems, clearCart, fetchCart, items } = cart;
   const subtotal = pendingOrder?.subtotal ?? cart.subtotal;
@@ -140,6 +148,7 @@ export default function PaymentScreen() {
         const { data: orderRes } = await ordersApi.create({
           address_id: selectedAddress,
           payment_method: selected,
+          notes: [...instructions, instructionNote.trim()].filter(Boolean).join(' • ') || undefined,
           ...(slotInfo && selectedSlot
             ? { delivery_slot: selectedSlot, delivery_date: slotInfo.date }
             : {}),
@@ -294,6 +303,35 @@ export default function PaymentScreen() {
           </View>
         )}
 
+        {/* Delivery instructions */}
+        <View style={styles.slotCard}>
+          <Text style={styles.slotTitle}>Delivery instructions</Text>
+          <View style={[styles.slotGrid, { marginTop: Spacing.sm }]}>
+            {INSTRUCTION_OPTIONS.map((opt) => {
+              const active = instructions.includes(opt);
+              return (
+                <Pressable
+                  key={opt}
+                  style={[styles.instructionChip, active && styles.slotChipActive]}
+                  disabled={!!pendingOrder}
+                  onPress={() => toggleInstruction(opt)}
+                >
+                  <Text style={[styles.slotChipText, active && styles.slotChipTextActive]}>{opt}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <TextInput
+            style={styles.instructionInput}
+            placeholder="Anything else for the delivery partner? (optional)"
+            placeholderTextColor={Colors.outlineVariant}
+            value={instructionNote}
+            onChangeText={setInstructionNote}
+            editable={!pendingOrder}
+            maxLength={200}
+          />
+        </View>
+
         {/* Payment Methods */}
         <Text style={styles.sectionLabel}>Payment Method</Text>
         {PAYMENT_METHODS.map((method) => (
@@ -406,6 +444,15 @@ const styles = StyleSheet.create({
     width: '31%', alignItems: 'center', paddingVertical: 10,
     borderRadius: BorderRadius.lg, borderWidth: 1.5, borderColor: Colors.outlineVariant,
     backgroundColor: Colors.surfaceContainerLow,
+  },
+  instructionChip: {
+    paddingHorizontal: 12, paddingVertical: 8,
+    borderRadius: BorderRadius.full, borderWidth: 1.5, borderColor: Colors.outlineVariant,
+    backgroundColor: Colors.surfaceContainerLow,
+  },
+  instructionInput: {
+    marginTop: Spacing.sm, backgroundColor: Colors.surfaceContainerLow, borderRadius: BorderRadius.lg,
+    paddingHorizontal: Spacing.md, paddingVertical: 10, fontSize: 13, color: Colors.onSurfaceDeep,
   },
   slotChipActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryContainer },
   slotChipText: { fontSize: 13, fontWeight: '600', color: Colors.onSurfaceVariant },

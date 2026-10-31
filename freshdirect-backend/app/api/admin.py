@@ -12,6 +12,7 @@ from app.core.security import create_access_token, pwd_context
 from app.api.v1.deps import get_current_admin
 from app.services.auth_service import generate_user_code
 from app.services.notification_service import notify_status_change
+from app.services.order_service import record_status, build_timeline
 from app.models.user import User, FamilyMember
 from app.models.product import Product, Carousel
 from app.models.order import Order, OrderStatus
@@ -169,6 +170,7 @@ async def admin_list_orders(
             "id": o.id, "order_number": o.order_number, "status": o.status.value if hasattr(o.status, 'value') else o.status,
             "total": o.total, "created_at": o.created_at.isoformat() if o.created_at else None,
             "estimated_delivery_at": o.estimated_delivery_at.isoformat() if o.estimated_delivery_at else None,
+            "rating": o.rating,
             "items": [{"id": i.id, "product_name": i.product_name, "quantity": i.quantity} for i in o.items],
             "user": {"name": o.user.name, "email": o.user.email, "phone": o.user.phone} if o.user else None,
         })
@@ -198,6 +200,12 @@ async def admin_get_order(order_id: str, db: AsyncSession = Depends(get_db), _: 
         "created_at": o.created_at.isoformat() if o.created_at else None,
         "estimated_delivery_at": o.estimated_delivery_at.isoformat() if o.estimated_delivery_at else None,
         "rider_id": o.rider_id,
+        "notes": o.notes,  # customer's delivery instructions
+        # Admin/support can read it out to a rider whose customer can't.
+        "delivery_otp": o.delivery_otp,
+        "rating": o.rating,
+        "rating_comment": o.rating_comment,
+        "rated_at": o.rated_at.isoformat() if o.rated_at else None,
         "items": [{"id": i.id, "product_name": i.product_name, "quantity": i.quantity, "price_at_purchase": i.unit_price, "product": {"name": i.product_name, "images": [i.product_image_url] if i.product_image_url else []}} for i in o.items],
         "user": {"name": o.user.name, "email": o.user.email, "phone": o.user.phone} if o.user else None,
         "address": address_data,
@@ -216,6 +224,8 @@ async def admin_update_order_status(order_id: str, payload: OrderStatusUpdateReq
         order.estimated_delivery_at = payload.estimated_delivery_at
     if payload.status == OrderStatus.DELIVERED:
         order.delivered_at = datetime.now(timezone.utc)
+    if order.status != old_status:
+        record_status(order, order.status)
     await db.flush()
     notify_status_change(order, old_status)
     return {"success": True, "status": order.status.value if hasattr(order.status, 'value') else order.status}
@@ -585,6 +595,10 @@ async def cancel_order_admin(
 
     old_status = order.status
     order.status = OrderStatus.CANCELLED
+    order.cancelled_at = datetime.now(timezone.utc)
+    order.cancellation_reason = reason
+    if old_status != OrderStatus.CANCELLED:
+        record_status(order, OrderStatus.CANCELLED, order.cancelled_at)
     await db.flush()
     notify_status_change(order, old_status)
 
@@ -614,47 +628,8 @@ async def get_order_timeline(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    # Build status timeline
-    timeline = []
-
-    # Created timestamp (always present)
-    timeline.append({
-        "status": "pending",
-        "timestamp": order.created_at.isoformat() if order.created_at else None,
-        "label": "Order Placed"
-    })
-
-    # Check if order reached confirmed status
-    if order.status in [OrderStatus.CONFIRMED, OrderStatus.OUT_FOR_DELIVERY, OrderStatus.DELIVERED]:
-        timeline.append({
-            "status": "confirmed",
-            "timestamp": getattr(order, 'confirmed_at', order.created_at).isoformat() if hasattr(order, 'confirmed_at') and order.confirmed_at else order.created_at.isoformat(),
-            "label": "Order Confirmed"
-        })
-
-    # Check if order reached out for delivery status
-    if order.status in [OrderStatus.OUT_FOR_DELIVERY, OrderStatus.DELIVERED]:
-        timeline.append({
-            "status": "out_for_delivery",
-            "timestamp": getattr(order, 'shipped_at', order.created_at).isoformat() if hasattr(order, 'shipped_at') and order.shipped_at else order.created_at.isoformat(),
-            "label": "Out for Delivery"
-        })
-
-    # Check if order is delivered
-    if order.status == OrderStatus.DELIVERED and order.delivered_at:
-        timeline.append({
-            "status": "delivered",
-            "timestamp": order.delivered_at.isoformat(),
-            "label": "Delivered"
-        })
-
-    # Check if order is cancelled
-    if order.status == OrderStatus.CANCELLED:
-        timeline.append({
-            "status": "cancelled",
-            "timestamp": getattr(order, 'cancelled_at', order.created_at).isoformat() if hasattr(order, 'cancelled_at') and order.cancelled_at else order.created_at.isoformat(),
-            "label": "Order Cancelled"
-        })
+    # Real per-step history (falls back to derived timestamps for old orders).
+    timeline = build_timeline(order)
 
     return {
         "success": True,

@@ -1,16 +1,19 @@
 import React from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, Pressable, Image, ActivityIndicator,
+  View, Text, StyleSheet, ScrollView, Pressable, Image, ActivityIndicator, TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import {
   ChevronLeft, Package, Clock, CheckCircle2, Truck, XCircle, MapPin,
+  Star, RotateCcw, MessageSquare,
 } from 'lucide-react-native';
 import { Colors, BorderRadius, Spacing, Shadows } from '@/constants/theme';
 import { ordersApi } from '@/lib/api';
 import { appAlert } from '@/lib/appAlert';
-import { formatDeliveryTime } from '@/lib/deliveryTime';
+import { formatDeliveryTime, formatStepTime } from '@/lib/deliveryTime';
+import DeliveryOtpCard from '@/components/DeliveryOtpCard';
+import { reorderToCart } from '@/lib/reorder';
 import { useAuthStore } from '@/store/authStore';
 import { useRazorpay, PAYMENT_CANCELLED } from '@/hooks/useRazorpay';
 
@@ -47,6 +50,9 @@ export default function OrderDetailScreen() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
+  const [stars, setStars] = React.useState(0);
+  const [comment, setComment] = React.useState('');
+  const [rating, setRating] = React.useState(false);
   const { user } = useAuthStore();
   const { startPayment } = useRazorpay();
 
@@ -96,6 +102,31 @@ export default function OrderDetailScreen() {
     } catch (e: any) {
       const detail = e.response?.data?.detail;
       appAlert('Could not cancel', typeof detail === 'string' ? detail : 'Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitRating = async () => {
+    if (!stars || rating) return;
+    setRating(true);
+    try {
+      await ordersApi.rate(order.id, stars, comment.trim() || undefined);
+      await load();
+      appAlert('Thank you!', 'Your rating has been submitted.');
+    } catch (e: any) {
+      const detail = e.response?.data?.detail;
+      appAlert('Could not submit rating', typeof detail === 'string' ? detail : 'Please try again.');
+    } finally {
+      setRating(false);
+    }
+  };
+
+  const handleReorder = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      if (await reorderToCart(order.id)) router.push('/tabs/cart');
     } finally {
       setBusy(false);
     }
@@ -151,6 +182,8 @@ export default function OrderDetailScreen() {
   // Paid orders aren't self-cancellable: the backend doesn't refund yet, so
   // those go through support instead.
   const canCancel = ['pending', 'confirmed'].includes(order.status) && order.payment_status !== 'paid';
+  const canReorder = ['delivered', 'cancelled', 'refunded'].includes(order.status);
+  const timeline: { status: string; label: string; timestamp?: string | null }[] = order.timeline || [];
 
   return (
     <View style={styles.container}>
@@ -212,6 +245,35 @@ export default function OrderDetailScreen() {
             </Pressable>
           )}
         </View>
+
+        <DeliveryOtpCard otp={order.delivery_otp} />
+
+        {/* Customer's delivery instructions */}
+        {order.notes ? (
+          <View style={[styles.card, styles.notesCard]}>
+            <MessageSquare size={15} color={Colors.onSurfaceVariant} />
+            <Text style={styles.notesText}>{order.notes}</Text>
+          </View>
+        ) : null}
+
+        {/* Timeline with the time of each step */}
+        {timeline.length > 0 && (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Order Timeline</Text>
+            {timeline.map((t, i) => (
+              <View key={`${t.status}-${i}`} style={styles.tlRow}>
+                <View style={styles.tlLeft}>
+                  <View style={[styles.tlDot, t.status === 'cancelled' && { backgroundColor: Colors.error }]} />
+                  {i < timeline.length - 1 && <View style={styles.tlLine} />}
+                </View>
+                <View style={{ flex: 1, paddingBottom: 10 }}>
+                  <Text style={styles.tlLabel}>{t.label}</Text>
+                  {formatStepTime(t.timestamp) ? <Text style={styles.tlTime}>{formatStepTime(t.timestamp)}</Text> : null}
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
 
         {/* Delivery address */}
         {addr ? (
@@ -277,6 +339,56 @@ export default function OrderDetailScreen() {
             <Text style={styles.billTotalValue}>{`\u20b9${order.total ?? 0}`}</Text>
           </View>
         </View>
+
+        {/* Rate the delivery */}
+        {order.status === 'delivered' && (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>{order.rating ? 'Your rating' : 'How was your order?'}</Text>
+            {order.rating ? (
+              <>
+                <View style={styles.starsRow}>
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <Star key={n} size={26} color="#f5a623" fill={n <= order.rating ? '#f5a623' : 'transparent'} />
+                  ))}
+                </View>
+                {order.rating_comment ? <Text style={styles.ratingComment}>{`"${order.rating_comment}"`}</Text> : null}
+              </>
+            ) : (
+              <>
+                <View style={styles.starsRow}>
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <Pressable key={n} onPress={() => setStars(n)} hitSlop={6}>
+                      <Star size={32} color="#f5a623" fill={n <= stars ? '#f5a623' : 'transparent'} />
+                    </Pressable>
+                  ))}
+                </View>
+                {stars > 0 && (
+                  <>
+                    <TextInput
+                      style={styles.commentInput}
+                      placeholder="Tell us more (optional)"
+                      placeholderTextColor={Colors.outlineVariant}
+                      value={comment}
+                      onChangeText={setComment}
+                      maxLength={500}
+                      multiline
+                    />
+                    <Pressable style={[styles.trackBtn, rating && { opacity: 0.6 }]} onPress={submitRating} disabled={rating}>
+                      <Text style={styles.trackBtnText}>{rating ? 'Submitting...' : 'Submit Rating'}</Text>
+                    </Pressable>
+                  </>
+                )}
+              </>
+            )}
+          </View>
+        )}
+
+        {canReorder && (
+          <Pressable style={[styles.reorderBtn, busy && { opacity: 0.6 }]} onPress={handleReorder} disabled={busy}>
+            <RotateCcw size={16} color={Colors.primary} />
+            <Text style={styles.reorderText}>Reorder these items</Text>
+          </Pressable>
+        )}
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -349,6 +461,27 @@ const styles = StyleSheet.create({
   },
   slotText: { fontSize: 13, color: Colors.onSurface },
   slotBold: { fontWeight: '800', color: Colors.primary },
+  notesCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  notesText: { flex: 1, fontSize: 13, color: Colors.onSurface, lineHeight: 19 },
+  tlRow: { flexDirection: 'row', gap: 10 },
+  tlLeft: { alignItems: 'center', width: 14 },
+  tlDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: Colors.primary, marginTop: 3 },
+  tlLine: { width: 2, flex: 1, backgroundColor: Colors.primaryContainer, marginTop: 2 },
+  tlLabel: { fontSize: 13, fontWeight: '700', color: Colors.onSurfaceDeep },
+  tlTime: { fontSize: 11, color: Colors.onSurfaceVariant, marginTop: 1 },
+  starsRow: { flexDirection: 'row', gap: 10, marginVertical: 4 },
+  ratingComment: { fontSize: 13, color: Colors.onSurfaceVariant, fontStyle: 'italic', marginTop: 6 },
+  commentInput: {
+    marginTop: Spacing.sm, minHeight: 60, textAlignVertical: 'top',
+    backgroundColor: Colors.surfaceContainerLow, borderRadius: BorderRadius.lg,
+    padding: Spacing.sm, fontSize: 13, color: Colors.onSurfaceDeep,
+  },
+  reorderBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    borderWidth: 1.5, borderColor: Colors.primary, borderRadius: BorderRadius.full,
+    paddingVertical: 12, backgroundColor: Colors.surfaceCard,
+  },
+  reorderText: { color: Colors.primary, fontSize: 14, fontWeight: '700' },
   cancelBtn: {
     flexDirection: 'row',
     alignItems: 'center',

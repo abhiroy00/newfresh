@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import {
   ArrowLeft, CheckCircle2, Bike, User, MapPin, Package, CreditCard,
   Phone, Mail, Printer, FileText, Receipt, Copy, Calendar, Clock, Download,
+  KeyRound, Star, MessageSquare,
 } from 'lucide-react'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
@@ -420,6 +421,38 @@ export default function OrderDetail() {
                 <p className="text-sm text-gray-400">No riders available.</p>
               )}
             </div>
+
+            {/* Delivery: OTP, instructions, customer rating */}
+            {(order.delivery_otp || order.notes || order.rating) && (
+              <div className="bg-white rounded-2xl shadow p-5 space-y-3">
+                <h2 className="font-semibold">Delivery</h2>
+                {order.delivery_otp && !['delivered', 'cancelled', 'refunded'].includes(order.status) && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <KeyRound size={14} className="text-emerald-600" />
+                    <span className="text-gray-500">Delivery OTP (rider needs it to mark delivered):</span>
+                    <span className="font-mono font-bold tracking-widest text-gray-900">{order.delivery_otp}</span>
+                  </div>
+                )}
+                {order.notes && (
+                  <div className="flex items-start gap-2 text-sm bg-amber-50 text-amber-900 rounded-xl px-3 py-2">
+                    <MessageSquare size={14} className="mt-0.5 shrink-0" />
+                    <span><span className="font-semibold">Instructions:</span> {order.notes}</span>
+                  </div>
+                )}
+                {order.rating && (
+                  <div className="text-sm">
+                    <div className="flex items-center gap-1">
+                      <span className="text-gray-500 mr-1">Customer rating:</span>
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <Star key={n} size={15} className={n <= order.rating ? 'text-amber-400' : 'text-gray-300'} fill={n <= order.rating ? 'currentColor' : 'none'} />
+                      ))}
+                      <span className="ml-1 font-semibold text-gray-800">{order.rating}/5</span>
+                    </div>
+                    {order.rating_comment && <p className="text-gray-600 mt-1 italic">"{order.rating_comment}"</p>}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Timeline */}
             {timeline?.timeline?.length ? (

@@ -6,8 +6,11 @@ from sqlalchemy.orm import selectinload
 from app.core.database import get_db
 from app.api.v1.deps import get_current_user, get_current_admin
 from app.models.user import User
-from app.schemas.order import OrderCreate, OrderStatusUpdate, OrderCancelRequest
-from app.services.order_service import create_order, list_orders, cancel_order
+from app.schemas.order import OrderCreate, OrderStatusUpdate, OrderCancelRequest, OrderRateRequest
+from app.services.order_service import (
+    create_order, list_orders, cancel_order, rate_order, reorder,
+    record_status, build_timeline, visible_delivery_otp,
+)
 from app.services.delivery_slots import available_slots
 from app.services.notification_service import queue_order_event, notify_status_change
 from app.models.order import PaymentMethod
@@ -56,6 +59,7 @@ async def api_create_order(payload: OrderCreate, current_user: User = Depends(ge
             "total": order_loaded.total,
             "notes": order_loaded.notes,
             "razorpay_order_id": order_loaded.razorpay_order_id,
+            "delivery_otp": visible_delivery_otp(order_loaded),
             "estimated_delivery_at": order_loaded.estimated_delivery_at.isoformat() if order_loaded.estimated_delivery_at else None,
             "delivered_at": order_loaded.delivered_at.isoformat() if order_loaded.delivered_at else None,
             "cancelled_at": order_loaded.cancelled_at.isoformat() if order_loaded.cancelled_at else None,
@@ -132,6 +136,11 @@ async def api_get_order(order_id: str, current_user: User = Depends(get_current_
             "created_at": order.created_at.isoformat() if order.created_at else None,
             "address": address,
             "rider": rider,
+            # Shown while on its way; the rider needs it to mark delivered.
+            "delivery_otp": visible_delivery_otp(order),
+            "timeline": build_timeline(order),
+            "rating": order.rating,
+            "rating_comment": order.rating_comment,
             "items": [
                 {
                     "id": i.id,
@@ -146,6 +155,15 @@ async def api_get_order(order_id: str, current_user: User = Depends(get_current_
             ],
         },
     }
+
+@router.post("/{order_id}/rate")
+async def api_rate_order(order_id: str, payload: OrderRateRequest, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    order = await rate_order(order_id, current_user.id, payload.rating, payload.comment, db)
+    return {"success": True, "data": {"rating": order.rating, "rating_comment": order.rating_comment}}
+
+@router.post("/{order_id}/reorder")
+async def api_reorder(order_id: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    return {"success": True, "data": await reorder(order_id, current_user.id, db)}
 
 @router.post("/{order_id}/cancel")
 async def api_cancel_order(order_id: str, payload: OrderCancelRequest, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
@@ -165,6 +183,8 @@ async def api_update_order_status(order_id: str, payload: OrderStatusUpdate, db:
         order.estimated_delivery_at = payload.estimated_delivery_at
     if payload.status == OrderStatus.DELIVERED:
         order.delivered_at = datetime.now(timezone.utc)
+    if order.status != old_status:
+        record_status(order, order.status)
     await db.flush()
     notify_status_change(order, old_status)
     return {"success": True, "data": order}

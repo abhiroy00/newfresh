@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../api/axios'
 import toast from 'react-hot-toast'
-import { MapPin, Phone, Package, ChevronDown, ChevronUp, CheckCircle, Truck } from 'lucide-react'
+import { MapPin, Phone, Package, ChevronDown, ChevronUp, Truck } from 'lucide-react'
+import DeliverWithOtp from '../components/DeliverWithOtp'
 
 const STATUS_STYLE: Record<string, string> = {
   pending:          'bg-yellow-100 text-yellow-700',
@@ -24,13 +25,14 @@ export default function RiderOrders() {
   })
 
   const { mutate: updateStatus, isPending } = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) =>
-      api.patch(`/rider/orders/${id}/status`, { status }),
+    mutationFn: ({ id, status, otp }: { id: string; status: string; otp?: string }) =>
+      api.patch(`/rider/orders/${id}/status`, { status, otp }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['rider-orders'] })
       toast.success('Status updated')
     },
-    onError: () => toast.error('Failed to update status'),
+    // Show the server's reason (e.g. "Wrong OTP…") instead of a generic message.
+    onError: (e: any) => toast.error(e?.response?.data?.detail || 'Failed to update status'),
   })
 
   if (isLoading) return (
@@ -65,7 +67,7 @@ export default function RiderOrders() {
               order={order}
               expanded={expanded === order.id}
               onToggle={() => setExpanded(expanded === order.id ? null : order.id)}
-              onUpdateStatus={(status) => updateStatus({ id: order.id, status })}
+              onUpdateStatus={(status, otp) => updateStatus({ id: order.id, status, otp })}
               isPending={isPending}
             />
           ))}
@@ -81,7 +83,7 @@ export default function RiderOrders() {
               order={order}
               expanded={expanded === order.id}
               onToggle={() => setExpanded(expanded === order.id ? null : order.id)}
-              onUpdateStatus={(status) => updateStatus({ id: order.id, status })}
+              onUpdateStatus={(status, otp) => updateStatus({ id: order.id, status, otp })}
               isPending={isPending}
             />
           ))}
@@ -95,7 +97,7 @@ function OrderCard({ order, expanded, onToggle, onUpdateStatus, isPending }: {
   order: any
   expanded: boolean
   onToggle: () => void
-  onUpdateStatus: (s: string) => void
+  onUpdateStatus: (s: string, otp?: string) => void
   isPending: boolean
 }) {
   const addr = order.address
@@ -158,6 +160,14 @@ function OrderCard({ order, expanded, onToggle, onUpdateStatus, isPending }: {
             </div>
           )}
 
+          {/* Customer's delivery instructions */}
+          {order.notes && (
+            <div className="bg-amber-50 rounded-xl p-3">
+              <p className="text-xs font-semibold text-amber-800 uppercase">Delivery Instructions</p>
+              <p className="text-sm text-amber-900 mt-0.5">{order.notes}</p>
+            </div>
+          )}
+
           {/* Items */}
           <div>
             <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Items</p>
@@ -188,14 +198,11 @@ function OrderCard({ order, expanded, onToggle, onUpdateStatus, isPending }: {
               Mark Out for Delivery
             </button>
           ) : order.status === 'out_for_delivery' ? (
-            <button
-              onClick={() => onUpdateStatus('delivered')}
-              disabled={isPending}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white bg-green-600 hover:bg-green-700 disabled:opacity-60 transition"
-            >
-              <CheckCircle size={16} />
-              Mark as Delivered
-            </button>
+            <DeliverWithOtp
+              otpRequired={!!order.otp_required}
+              isPending={isPending}
+              onConfirm={(otp) => onUpdateStatus('delivered', otp)}
+            />
           ) : null}
         </div>
       )}

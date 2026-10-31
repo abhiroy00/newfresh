@@ -4,9 +4,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { Package, ChevronRight, Clock, CheckCircle2, Truck, XCircle } from 'lucide-react-native';
+import { Package, ChevronRight, Clock, CheckCircle2, Truck, XCircle, RotateCcw } from 'lucide-react-native';
 import { Colors, BorderRadius, Spacing, Shadows } from '@/constants/theme';
 import { ordersApi } from '@/lib/api';
+import { reorderToCart } from '@/lib/reorder';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 
 const StatusIcon = ({ status }: { status: string }) => {
@@ -123,10 +124,21 @@ export default function OrdersScreen() {
                     <Text style={styles.orderItems}>{order.items?.length || 0} items</Text>
                     <Text style={styles.orderTotal}>{`\u20b9${order.total}`}</Text>
                   </View>
-                  {order.status === 'out_for_delivery' && (
-                    <Pressable style={styles.trackBtn} onPress={() => router.push('/track')}>
+                  {['pending', 'confirmed', 'packing', 'out_for_delivery'].includes(order.status) && (
+                    <Pressable style={styles.trackBtn} onPress={() => router.push({ pathname: '/track', params: { id: order.id } })}>
                       <Truck size={12} color="#fff" />
                       <Text style={styles.trackBtnText}>Track Order</Text>
+                    </Pressable>
+                  )}
+                  {['delivered', 'cancelled', 'refunded'].includes(order.status) && (
+                    <Pressable
+                      style={styles.reorderBtn}
+                      onPress={async () => {
+                        if (await reorderToCart(order.id)) router.push('/tabs/cart');
+                      }}
+                    >
+                      <RotateCcw size={12} color={Colors.primary} />
+                      <Text style={styles.reorderBtnText}>Reorder</Text>
                     </Pressable>
                   )}
                 </View>
@@ -208,4 +220,10 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   trackBtnText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  reorderBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start',
+    borderWidth: 1.5, borderColor: Colors.primary, borderRadius: BorderRadius.full,
+    paddingHorizontal: 12, paddingVertical: 5, marginTop: 8,
+  },
+  reorderBtnText: { color: Colors.primary, fontSize: 11, fontWeight: '700' },
 });

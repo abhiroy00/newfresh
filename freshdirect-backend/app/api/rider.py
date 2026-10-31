@@ -10,6 +10,7 @@ from app.api.v1.deps import get_current_rider
 from app.models.user import User
 from app.models.order import Order, OrderStatus
 from app.services.notification_service import notify_status_change
+from app.services.order_service import record_status
 
 router = APIRouter(prefix="/api/v1/rider")
 
@@ -43,6 +44,11 @@ async def rider_orders(
             "status": o.status.value if hasattr(o.status, "value") else o.status,
             "total": o.total,
             "delivery_fee": o.delivery_fee,
+            "payment_method": o.payment_method.value if o.payment_method else None,
+            "payment_status": o.payment_status.value if hasattr(o.payment_status, "value") else o.payment_status,
+            "notes": o.notes,  # delivery instructions from the customer
+            # Riders never see the OTP itself — only whether one is needed.
+            "otp_required": bool(o.delivery_otp),
             "created_at": o.created_at.isoformat() if o.created_at else None,
             "estimated_delivery_at": o.estimated_delivery_at.isoformat() if o.estimated_delivery_at else None,
             "customer": {
@@ -143,8 +149,20 @@ async def rider_update_status(
     if not order:
         raise HTTPException(404, "Order not found or not assigned to you")
 
+    # Delivery OTP: the rider must enter the 4-digit code the customer sees in
+    # their app, so an order can't be marked delivered without reaching them.
+    # Orders created before OTPs existed have none and skip this.
+    if status_enum == OrderStatus.DELIVERED and order.delivery_otp:
+        entered = str(payload.get("otp") or "").strip()
+        if not entered:
+            raise HTTPException(400, "Enter the 4-digit delivery OTP from the customer")
+        if entered != order.delivery_otp:
+            raise HTTPException(400, "Wrong OTP. Ask the customer to check the code in their Gmart app.")
+
     old_status = order.status
     order.status = status_enum
+    if status_enum != old_status:
+        record_status(order, status_enum)
     if status_enum == OrderStatus.DELIVERED:
         from datetime import datetime, timezone
         order.delivered_at = datetime.now(timezone.utc)

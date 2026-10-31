@@ -180,6 +180,7 @@ export default function Orders() {
                     {o.estimated_delivery_at
                       ? new Date(o.estimated_delivery_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: 'numeric', minute: '2-digit' })
                       : '—'}
+                    {o.rating ? <div className="text-amber-500 font-bold mt-0.5">{'★'.repeat(o.rating)}<span className="text-gray-300">{'★'.repeat(5 - o.rating)}</span></div> : null}
                   </td>
                   <td className="px-4 py-3">
                     <select

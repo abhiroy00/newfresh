@@ -71,7 +71,7 @@ class ArrivingOnceTests(unittest.IsolatedAsyncioTestCase):
 
     def order(self, **kw):
         base = dict(id="o1", user_id="u1", order_number="FD-1", rider_id="r1",
-                    arriving_notified_at=None, status=OrderStatus.OUT_FOR_DELIVERY)
+                    arriving_notified_at=None, status=OrderStatus.OUT_FOR_DELIVERY, delivery_otp="4821")
         base.update(kw)
         return SimpleNamespace(**base)
 
@@ -82,6 +82,7 @@ class ArrivingOnceTests(unittest.IsolatedAsyncioTestCase):
         title, body = send.await_args.args[1], send.await_args.args[2]
         self.assertEqual(title, "Arriving soon 🚴")
         self.assertIn("Rahul", body)
+        self.assertIn("Share OTP 4821", body)
 
     async def test_second_trigger_does_not_send_again(self):
         with patch("app.services.notification_service.send_push_notification", AsyncMock()) as send:

@@ -92,8 +92,9 @@ export interface User {
   has_password: boolean
 }
 
-export type OrderStatus = 'PENDING' | 'CONFIRMED' | 'PACKED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED'
-export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED'
+// Lowercase, exactly as the API returns them.
+export type OrderStatus = 'pending' | 'confirmed' | 'packing' | 'out_for_delivery' | 'delivered' | 'cancelled' | 'refunded'
+export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded'
 export type PaymentMethod = 'UPI' | 'CARD' | 'COD'
 
 export interface OrderItem {
@@ -123,6 +124,9 @@ export interface Order {
   rider?: { id: string; name: string; phone: string } | null
   items: OrderItem[]
   estimated_delivery_at?: string | null
+  // 4-digit code for the rider; present only while the order is on its way.
+  delivery_otp?: string | null
+  timeline?: { status: OrderStatus; label: string; timestamp?: string | null }[]
   delivered_at?: string | null
   cancelled_at?: string | null
   cancellation_reason?: string | null

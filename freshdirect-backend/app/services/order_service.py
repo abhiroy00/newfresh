@@ -1,5 +1,6 @@
 import json
 import random
+import secrets
 import string
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,9 +12,59 @@ from app.models.order import Order, OrderItem, OrderStatus
 from app.models.user import Address
 from app.models.product import Product
 from app.schemas.order import OrderCreate
-from app.services.cart_service import get_or_create_cart, clear_cart, _purge_unavailable
+from app.services.cart_service import get_or_create_cart, clear_cart, _purge_unavailable, add_item
 from app.core.config import settings
 from app.services.delivery_slots import resolve_slot
+
+
+ACTIVE_STATUSES = (OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.PACKING, OrderStatus.OUT_FOR_DELIVERY)
+
+STATUS_LABELS = {
+    "pending": "Order Placed",
+    "confirmed": "Order Confirmed",
+    "packing": "Being Packed",
+    "out_for_delivery": "Out for Delivery",
+    "delivered": "Delivered",
+    "cancelled": "Order Cancelled",
+    "refunded": "Refunded",
+}
+
+
+def _status_value(status) -> str:
+    return status.value if hasattr(status, "value") else str(status)
+
+
+def record_status(order: Order, status, at: datetime | None = None) -> None:
+    """Append a transition to order.status_history (for the timeline).
+
+    Reassigns the list — mutating a JSON column in place isn't tracked.
+    """
+    entry = {"status": _status_value(status), "at": (at or datetime.now(timezone.utc)).isoformat()}
+    order.status_history = [*(order.status_history or []), entry]
+
+
+def build_timeline(order: Order) -> list[dict]:
+    """Timeline entries [{status, label, timestamp}], oldest first.
+
+    Orders from before status_history existed get one derived from the
+    timestamps we always kept.
+    """
+    history = order.status_history
+    if not history:
+        history = [{"status": "pending", "at": order.created_at.isoformat() if order.created_at else None}]
+        if order.delivered_at:
+            history.append({"status": "delivered", "at": order.delivered_at.isoformat()})
+        if order.cancelled_at:
+            history.append({"status": "cancelled", "at": order.cancelled_at.isoformat()})
+    return [
+        {"status": h["status"], "label": STATUS_LABELS.get(h["status"], h["status"]), "timestamp": h.get("at")}
+        for h in history
+    ]
+
+
+def visible_delivery_otp(order: Order) -> str | None:
+    """The OTP is only shown to the customer while the order is on its way."""
+    return order.delivery_otp if order.status in ACTIVE_STATUSES else None
 
 
 def _gen_order_number() -> str:
@@ -113,7 +164,10 @@ async def create_order(user_id: str, payload: OrderCreate, db: AsyncSession) -> 
         total=total,
         notes=payload.notes,
         estimated_delivery_at=estimated_delivery_at,
+        # Customer reads this to the rider at the door (Zepto/Swiggy style).
+        delivery_otp=f"{secrets.randbelow(10000):04d}",
     )
+    record_status(order, OrderStatus.PENDING)
     db.add(order)
     await db.flush()
 
@@ -168,6 +222,7 @@ async def cancel_order(order_id: str, user_id: str, reason: str, db: AsyncSessio
     order.status = OrderStatus.CANCELLED
     order.cancelled_at = datetime.now(timezone.utc)
     order.cancellation_reason = reason
+    record_status(order, OrderStatus.CANCELLED, order.cancelled_at)
     # Restock items
     for item in order.items:
         if item.product_id:
@@ -176,3 +231,37 @@ async def cancel_order(order_id: str, user_id: str, reason: str, db: AsyncSessio
                 prod.stock += item.quantity
     await db.flush()
     return order
+
+
+async def rate_order(order_id: str, user_id: str, rating: int, comment: str | None, db: AsyncSession) -> Order:
+    order = await get_order(order_id, user_id, db)
+    if order.status != OrderStatus.DELIVERED:
+        raise HTTPException(status_code=400, detail="You can rate an order once it's delivered")
+    order.rating = rating
+    order.rating_comment = (comment or "").strip() or None
+    order.rated_at = datetime.now(timezone.utc)
+    await db.flush()
+    return order
+
+
+async def reorder(order_id: str, user_id: str, db: AsyncSession) -> dict:
+    """Add a past order's items to the cart. Unavailable / short-stock items are
+    skipped (or reduced to what's in stock) and reported back by name."""
+    order = await get_order(order_id, user_id, db)
+    added, skipped = [], []
+    for item in order.items:
+        if not item.product_id:
+            skipped.append(item.product_name)
+            continue
+        product = await db.get(Product, item.product_id)
+        if not product or not product.is_active or product.stock <= 0:
+            skipped.append(item.product_name)
+            continue
+        try:
+            await add_item(user_id, product.id, min(item.quantity, product.stock), db)
+            added.append(item.product_name)
+        except HTTPException:
+            # e.g. the cart already holds the remaining stock
+            skipped.append(item.product_name)
+    from app.services.cart_service import get_cart
+    return {"cart": await get_cart(user_id, db), "added": added, "skipped": skipped}

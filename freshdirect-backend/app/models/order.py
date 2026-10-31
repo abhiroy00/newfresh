@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from enum import Enum as PyEnum
 from typing import TYPE_CHECKING
-from sqlalchemy import String, ForeignKey, DateTime, Integer, Float, Text, Enum
+from sqlalchemy import String, ForeignKey, DateTime, Integer, Float, Text, Enum, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
@@ -67,6 +67,13 @@ class Order(Base):
     cancellation_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # When the "arriving soon" push (with rider details) was sent; NULL = not yet.
     arriving_notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # 4-digit code the customer gives the rider; required to mark delivered.
+    delivery_otp: Mapped[str | None] = mapped_column(String(4), nullable=True)
+    # [{"status": "confirmed", "at": "<iso>"}, ...] — one entry per transition.
+    status_history: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    rating: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 1–5 stars
+    rating_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    rated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

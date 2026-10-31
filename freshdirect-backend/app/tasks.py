@@ -77,6 +77,7 @@ async def _notify_arriving(order_id: str, db) -> bool:
         "arriving", order.order_number,
         rider_name=rider.name if rider else None,
         rider_phone=rider.phone if rider and rider.phone and not rider.phone.startswith("e_") else None,
+        otp=order.delivery_otp,
     )
     await send_push_notification(
         order.user_id, title, body,

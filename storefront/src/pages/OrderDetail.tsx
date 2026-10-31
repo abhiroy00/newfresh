@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { Package, MapPin, CheckCircle2, Circle, Truck, XCircle, PhoneCall } from 'lucide-react'
+import { Package, MapPin, CheckCircle2, Circle, Truck, XCircle, PhoneCall, KeyRound, MessageSquare } from 'lucide-react'
 import { ordersApi } from '@/api/endpoints'
 import { formatPrice, formatDateTime } from '@/lib/format'
 import { SUPPORT_PHONE } from '@/lib/constants'
@@ -11,11 +11,11 @@ import ErrorState from '@/components/ui/ErrorState'
 import type { Order, OrderStatus } from '@/types'
 
 const STEPS: { key: OrderStatus; label: string }[] = [
-  { key: 'PENDING', label: 'Order Placed' },
-  { key: 'CONFIRMED', label: 'Confirmed' },
-  { key: 'PACKED', label: 'Packed' },
-  { key: 'OUT_FOR_DELIVERY', label: 'Out for Delivery' },
-  { key: 'DELIVERED', label: 'Delivered' },
+  { key: 'pending', label: 'Order Placed' },
+  { key: 'confirmed', label: 'Confirmed' },
+  { key: 'packing', label: 'Packed' },
+  { key: 'out_for_delivery', label: 'Out for Delivery' },
+  { key: 'delivered', label: 'Delivered' },
 ]
 
 export default function OrderDetail() {
@@ -38,9 +38,13 @@ export default function OrderDetail() {
     return <div className="max-w-3xl mx-auto px-4 py-16 text-center text-on-surface-variant">{isLoading ? 'Loading...' : 'Order not found'}</div>
   }
 
-  const cancelled = order.status === 'CANCELLED'
+  const cancelled = order.status === 'cancelled'
   const currentStepIndex = STEPS.findIndex((s) => s.key === order.status)
-  const canCancel = order.status === 'PENDING' || order.status === 'CONFIRMED'
+  // Paid orders can't be self-cancelled yet (no automatic refunds), same as the app.
+  const canCancel = (order.status === 'pending' || order.status === 'confirmed') && order.payment_status !== 'paid'
+  // When each step happened (latest entry per status).
+  const stepTimes: Record<string, string> = {}
+  for (const t of order.timeline || []) if (t.timestamp) stepTimes[t.status] = t.timestamp
   const address: any = order.address
 
   const handleCancel = async () => {
@@ -93,18 +97,40 @@ export default function OrderDetail() {
                   </div>
                   <div className="pb-6">
                     <p className={`font-semibold text-sm ${done ? 'text-on-surface-deep' : 'text-on-surface-variant'}`}>{step.label}</p>
+                    {done && stepTimes[step.key] && (
+                      <p className="text-xs text-on-surface-variant">{formatDateTime(stepTimes[step.key])}</p>
+                    )}
                   </div>
                 </div>
               )
             })}
           </div>
         )}
-        {order.estimated_delivery_at && !cancelled && order.status !== 'DELIVERED' && (
+        {order.estimated_delivery_at && !cancelled && order.status !== 'delivered' && (
           <p className="text-sm text-accent-mint font-semibold flex items-center gap-1.5 mt-1">
             <Truck size={14} /> Estimated delivery: {formatDateTime(order.estimated_delivery_at)}
           </p>
         )}
       </div>
+
+      {/* Delivery OTP — the rider needs it to mark the order delivered */}
+      {order.delivery_otp && (
+        <div className="card p-4 mb-6 flex items-center gap-3 bg-primary-fixed">
+          <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center"><KeyRound size={17} className="text-primary" /></div>
+          <div className="flex-1">
+            <p className="font-bold text-sm text-on-surface-deep">Delivery OTP</p>
+            <p className="text-xs text-on-surface-variant">Share this with the delivery partner only when you receive your order.</p>
+          </div>
+          <span className="text-2xl font-black tracking-[0.3em] text-primary">{order.delivery_otp}</span>
+        </div>
+      )}
+
+      {order.notes && (
+        <div className="card p-4 mb-6 flex items-start gap-2 text-sm">
+          <MessageSquare size={15} className="text-on-surface-variant mt-0.5 shrink-0" />
+          <span><span className="font-semibold">Delivery instructions:</span> {order.notes}</span>
+        </div>
+      )}
 
       {/* Rider */}
       {order.rider && (

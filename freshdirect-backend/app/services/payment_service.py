@@ -163,6 +163,8 @@ async def verify_payment(
     order.payment_status = PaymentStatus.PAID
     if order.status == OrderStatus.PENDING:
         order.status = OrderStatus.CONFIRMED
+        from app.services.order_service import record_status
+        record_status(order, OrderStatus.CONFIRMED)
     await db.flush()
     # Only on the first successful verification (repeats return earlier above).
     queue_order_event("placed", order)

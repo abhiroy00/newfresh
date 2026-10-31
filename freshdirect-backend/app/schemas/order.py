@@ -1,5 +1,5 @@
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
 from app.models.order import OrderStatus, PaymentStatus, PaymentMethod
 
@@ -54,6 +54,11 @@ class OrderStatusUpdate(BaseModel):
     status: OrderStatus
     estimated_delivery_at: Optional[datetime] = None
     driver_id: Optional[str] = None
+
+
+class OrderRateRequest(BaseModel):
+    rating: int = Field(ge=1, le=5)
+    comment: Optional[str] = Field(default=None, max_length=500)
 
 
 class OrderCancelRequest(BaseModel):

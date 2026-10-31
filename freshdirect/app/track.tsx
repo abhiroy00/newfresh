@@ -4,15 +4,19 @@ import {
   View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import {
   ChevronLeft, Phone, Package, CheckCircle2, Truck, Clock, Home,
 } from 'lucide-react-native';
 import { Colors, BorderRadius, Spacing, Shadows } from '@/constants/theme';
 import { ordersApi } from '@/lib/api';
-import { formatDeliveryTime } from '@/lib/deliveryTime';
+import { formatDeliveryTime, formatStepTime, stepTimes } from '@/lib/deliveryTime';
+import DeliveryOtpCard from '@/components/DeliveryOtpCard';
 
 const STATUS_ORDER = ['pending', 'confirmed', 'packing', 'out_for_delivery', 'delivered'];
+const ACTIVE_STATUSES = ['pending', 'confirmed', 'packing', 'out_for_delivery'];
+// Tracking refreshes itself this often while the screen is open.
+const POLL_MS = 15_000;
 
 const STEPS = [
   { key: 'pending',          label: 'Order Placed',       Icon: CheckCircle2 },
@@ -36,22 +40,43 @@ export default function TrackScreen() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(false);
 
+  const [noActiveOrder, setNoActiveOrder] = React.useState(false);
+  const hasOrder = React.useRef(false);
+
   const loadOrder = React.useCallback(async () => {
-    if (!id) { setLoading(false); setError(true); return; }
     try {
-      const { data } = await ordersApi.detail(String(id));
+      // Opened without an order (e.g. from Help): track the latest active one.
+      let orderId = id ? String(id) : null;
+      if (!orderId) {
+        const { data } = await ordersApi.list({ page: 1, per_page: 10 });
+        const active = (data?.data || []).find((o: any) => ACTIVE_STATUSES.includes(o.status));
+        if (!active) { setNoActiveOrder(true); setError(false); return; }
+        orderId = active.id;
+      }
+      const { data } = await ordersApi.detail(orderId!);
       setOrder(data?.data ?? null);
+      hasOrder.current = !!data?.data;
+      setNoActiveOrder(false);
       setError(false);
     } catch {
-      setError(true);
+      // Keep showing the last good data on a failed background refresh.
+      if (!hasOrder.current) setError(true);
     } finally {
       setLoading(false);
     }
   }, [id]);
 
-  React.useEffect(() => {
-    loadOrder();
-  }, [loadOrder]);
+  // Load on focus and keep refreshing while the order is still on its way,
+  // so status, rider and ETA update without the customer pulling to refresh.
+  const isActive = !order || ACTIVE_STATUSES.includes(order.status);
+  useFocusEffect(
+    React.useCallback(() => {
+      loadOrder();
+      if (!isActive) return;
+      const timer = setInterval(loadOrder, POLL_MS);
+      return () => clearInterval(timer);
+    }, [loadOrder, isActive])
+  );
 
   const { refreshControl } = usePullRefresh(loadOrder);
 
@@ -74,6 +99,21 @@ export default function TrackScreen() {
     );
   }
 
+  if (noActiveOrder) {
+    return (
+      <View style={styles.container}>
+        {Header}
+        <View style={styles.center}>
+          <Package size={48} color={Colors.onSurfaceVariant} />
+          <Text style={styles.emptyText}>No active orders to track right now</Text>
+          <Pressable style={styles.secondaryBtn} onPress={() => router.replace('/tabs/orders')}>
+            <Text style={styles.secondaryBtnText}>View my orders</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
   if (error || !order) {
     return (
       <View style={styles.container}>
@@ -89,6 +129,7 @@ export default function TrackScreen() {
   const currentIdx = STATUS_ORDER.indexOf(order.status);
   const rider = order.rider;
   const eta = formatDeliveryTime(order.estimated_delivery_at);
+  const times = stepTimes(order.timeline);
 
   return (
     <View style={styles.container}>
@@ -118,6 +159,8 @@ export default function TrackScreen() {
             </View>
           )}
         </View>
+
+        <DeliveryOtpCard otp={order.delivery_otp} />
 
         {/* Rider card — only shown if assigned */}
         {rider ? (
@@ -170,6 +213,9 @@ export default function TrackScreen() {
                   <Text style={[styles.stepLabel, !done && { color: Colors.onSurfaceVariant }]}>
                     {step.label}
                   </Text>
+                  {done && formatStepTime(times[step.key]) ? (
+                    <Text style={styles.stepTime}>{formatStepTime(times[step.key])}</Text>
+                  ) : null}
                 </View>
               </View>
             );
@@ -184,6 +230,7 @@ export default function TrackScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  stepTime: { fontSize: 11, color: Colors.onSurfaceVariant, marginTop: 1 },
   header: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: Spacing.md, paddingBottom: Spacing.md,
@@ -200,6 +247,11 @@ const styles = StyleSheet.create({
   scrollContent: { padding: Spacing.md, gap: Spacing.sm },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyText: { fontSize: 14, color: Colors.onSurfaceVariant, marginTop: 12 },
+  secondaryBtn: {
+    marginTop: Spacing.md, paddingHorizontal: Spacing.lg, paddingVertical: 10,
+    borderRadius: BorderRadius.full, borderWidth: 1.5, borderColor: Colors.primary,
+  },
+  secondaryBtnText: { color: Colors.primary, fontSize: 13, fontWeight: '700' },
   card: {
     backgroundColor: Colors.surfaceCard,
     borderRadius: BorderRadius.xl,

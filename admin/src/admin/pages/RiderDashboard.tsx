@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../api/axios'
+import DeliverWithOtp from '../components/DeliverWithOtp'
 import { useAuthStore } from '../store/authStore'
 import toast from 'react-hot-toast'
 import { Bike, CheckCircle, Truck, Package, Clock, ChevronRight, Phone, MapPin } from 'lucide-react'
@@ -26,13 +27,14 @@ export default function RiderDashboard() {
   })
 
   const { mutate: updateStatus, isPending } = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) =>
-      api.patch(`/rider/orders/${id}/status`, { status }),
+    mutationFn: ({ id, status, otp }: { id: string; status: string; otp?: string }) =>
+      api.patch(`/rider/orders/${id}/status`, { status, otp }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['rider-orders'] })
       toast.success('Status updated')
     },
-    onError: () => toast.error('Failed to update'),
+    // Show the server's reason (e.g. "Wrong OTP…") instead of a generic message.
+    onError: (e: any) => toast.error(e?.response?.data?.detail || 'Failed to update status'),
   })
 
   const orders = data ?? []
@@ -102,7 +104,7 @@ export default function RiderDashboard() {
             <ActiveOrderCard
               key={order.id}
               order={order}
-              onUpdate={(status) => updateStatus({ id: order.id, status })}
+              onUpdate={(status, otp) => updateStatus({ id: order.id, status, otp })}
               isPending={isPending}
             />
           ))}
@@ -157,7 +159,7 @@ function StatCard({ icon, label, value, bg }: {
 }
 
 function ActiveOrderCard({ order, onUpdate, isPending }: {
-  order: any; onUpdate: (s: string) => void; isPending: boolean
+  order: any; onUpdate: (s: string, otp?: string) => void; isPending: boolean
 }) {
   const addr = order.address
 
@@ -183,6 +185,12 @@ function ActiveOrderCard({ order, onUpdate, isPending }: {
         </div>
       )}
 
+      {order.notes && (
+        <div className="text-xs bg-amber-50 text-amber-800 rounded-xl px-3 py-2">
+          <span className="font-semibold">Instructions:</span> {order.notes}
+        </div>
+      )}
+
       <div className="flex items-center gap-2">
         {order.customer?.phone && (
           <a
@@ -193,13 +201,13 @@ function ActiveOrderCard({ order, onUpdate, isPending }: {
           </a>
         )}
         {order.status === 'out_for_delivery' ? (
-          <button
-            onClick={() => onUpdate('delivered')}
-            disabled={isPending}
-            className="flex-1 py-1.5 rounded-xl text-xs font-semibold text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 transition"
-          >
-            Mark Delivered
-          </button>
+          <div className="flex-1">
+            <DeliverWithOtp
+              otpRequired={!!order.otp_required}
+              isPending={isPending}
+              onConfirm={(otp) => onUpdate('delivered', otp)}
+            />
+          </div>
         ) : (
           <button
             onClick={() => onUpdate('out_for_delivery')}

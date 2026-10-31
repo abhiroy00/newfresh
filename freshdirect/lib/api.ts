@@ -158,6 +158,9 @@ export const ordersApi = {
   deliverySlots: () => api.get('/orders/delivery-slots'),
   cancel: (id: string, reason?: string) =>
     api.post(`/orders/${id}/cancel`, { reason }),
+  rate: (id: string, rating: number, comment?: string) =>
+    api.post(`/orders/${id}/rate`, { rating, comment }),
+  reorder: (id: string) => api.post(`/orders/${id}/reorder`),
 };
 
 // Payments
