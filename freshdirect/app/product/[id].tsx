@@ -266,15 +266,9 @@ export default function ProductDetailScreen() {
                 }
               >
                 {imageUrls.map((url) => (
-                  <View key={url} style={styles.heroImage}>
-                    <Image
-                      source={{ uri: url }}
-                      style={[StyleSheet.absoluteFill, { opacity: 0.7 }]}
-                      resizeMode="cover"
-                      blurRadius={25}
-                    />
-                    <Image source={{ uri: url }} style={StyleSheet.absoluteFill} resizeMode="contain" />
-                  </View>
+                  // One sharp, uncropped image — no blurred backdrop copy (removed
+                  // on the storefront too, dd64c98).
+                  <Image key={url} source={{ uri: url }} style={styles.heroImage} resizeMode="contain" />
                 ))}
               </ScrollView>
               {imageUrls.length > 1 && (
@@ -540,7 +534,7 @@ const styles = StyleSheet.create({
   heroContainer: {
     width: '100%',
     aspectRatio: 1.25,
-    backgroundColor: Colors.surfaceContainerLow,
+    backgroundColor: '#fff',
     position: 'relative',
   },
   heroImage: { width: SCREEN_W, height: HERO_H },

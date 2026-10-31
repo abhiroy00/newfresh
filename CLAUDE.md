@@ -77,6 +77,7 @@ External: Razorpay (payments + webhook), Twilio Verify (SMS OTP), Cloudinary (im
 - Axios responses: the body is `res.data`, and the payload is `res.data.data`.
 - RN layout gotcha: children of a horizontal `ScrollView` need explicit pixel heights; a `%` height collapses to 0.
 - OTA: `runtimeVersion.policy = appVersion` (1.0.1). Native dependency changes need a new EAS build plus a version bump, because OTA alone won't deliver them.
+- **Bumping `expo.version` in app.json cuts off every installed build from future OTA updates** (the runtime changes). Only bump it together with a new APK/AAB that users actually install. Builds from 1.0.0 are stuck on the original code.
 
 ---
 
@@ -174,6 +175,7 @@ Ordered by severity. Verify each one before fixing.
 
 Add one line per change: date, short description, files touched.
 
+- 2026-10-31: Mobile product detail: removed the blurred backdrop copy behind the hero image (one sharp `contain` image on white, matching the storefront's `dd64c98`). `freshdirect/app/product/[id].tsx`. Also found why a user's phone still showed the original screen (header over image, badges on image, raw HTML description): its APK is runtime **1.0.0**, and every OTA since the bump to 1.0.1 (`91b8407`, 2026-10-16) targets 1.0.1, so they never reach it. It needs a new APK.
 - 2026-10-31: Mobile app bug sweep (code review + tsc + `expo export` bundle; not run on a device). Fixed:
   - Search always empty: it read `response.data` (the body) instead of `response.data.data`. Added a stale-response guard. `app/search.tsx`
   - Fake demo products (`constants/data.ts` PRODUCTS, ids like `p1`) shown on error/loading in home, categories and search, and always on `/vegetables`. Removed the fallbacks; home "View all" now goes to `/categories`; deleted `app/vegetables.tsx`. Categories fetch `per_page=100` (backend max).
