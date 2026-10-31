@@ -43,6 +43,20 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
           packager: npm
 
+      # The Google Play service-account key lives in the PLAY_SERVICE_ACCOUNT_JSON
+      # repo secret (the same one playstore.yml uses). EAS reads it from the
+      # path in eas.json → submit.production; the file is deleted afterwards.
+      - name: Write Google Play service account key
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$PLAY_SERVICE_ACCOUNT_JSON" ]; then
+            echo "::error title=Missing Play key::Add the Google Play service account JSON as the PLAY_SERVICE_ACCOUNT_JSON repository secret."
+            exit 1
+          fi
+          printf '%s' "$PLAY_SERVICE_ACCOUNT_JSON" > google-services-key.json
+          python3 -c "import json; d=json.load(open('google-services-key.json')); print('Play key for', d.get('client_email','?'))"
+
       # Waits for the build and the submission so this job's result shows
       # whether the release actually reached Play Console.
       - name: Build production AAB and submit to Google Play
@@ -64,3 +78,7 @@ jobs:
           exit "$status"
         env:
           EXPO_PUBLIC_API_URL: https://api.gmartfresh.com
+
+      - name: Remove Play key
+        if: always()
+        run: rm -f google-services-key.json

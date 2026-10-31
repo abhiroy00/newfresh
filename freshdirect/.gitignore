@@ -48,3 +48,6 @@ jest-results/
 *.log
 *.orig
 *.bak
+
+# Google Play service-account key (written by CI from a secret; never commit)
+google-services-key.json
