@@ -19,3 +19,8 @@ Thumbs.db
 .payment-deps/
 *.pem
 *.key
+*.keystore
+*.jks
+google-services-key.json
+shivlalmaps-*.json
+*service-account*.json
