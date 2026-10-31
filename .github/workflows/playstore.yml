@@ -40,7 +40,8 @@ jobs:
   release:
     name: Build AAB & upload to Play
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # A cold build (no Gradle cache) compiles Skia/Reanimated natively for 4 ABIs.
+    timeout-minutes: 90
     defaults:
       run:
         working-directory: freshdirect

@@ -7,7 +7,10 @@
 //   `expo run:android --variant release` still works.
 // - ANDROID_VERSION_CODE env overrides android.versionCode (CI sets it per run).
 // - EXPO_UPDATES_CHANNEL env sets the expo-updates channel header (EAS Build normally does this).
-const { withAppBuildGradle } = require('expo/config-plugins');
+// - Raises Gradle JVM memory: the template's 512 MiB metaspace runs out during release lint.
+const { withAppBuildGradle, withGradleProperties } = require('expo/config-plugins');
+
+const GRADLE_JVM_ARGS = '-Xmx4096m -XX:MaxMetaspaceSize=1024m';
 
 const MARKER = '// @gmart/release-signing';
 
@@ -53,6 +56,13 @@ module.exports = function withReleaseSigning(config) {
       requestHeaders: { ...config.updates?.requestHeaders, 'expo-channel-name': channel },
     };
   }
+
+  config = withGradleProperties(config, (cfg) => {
+    const props = cfg.modResults.filter((p) => !(p.type === 'property' && p.key === 'org.gradle.jvmargs'));
+    props.push({ type: 'property', key: 'org.gradle.jvmargs', value: GRADLE_JVM_ARGS });
+    cfg.modResults = props;
+    return cfg;
+  });
 
   return withAppBuildGradle(config, (cfg) => {
     cfg.modResults.contents = patchBuildGradle(cfg.modResults.contents);
