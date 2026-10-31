@@ -90,7 +90,8 @@ External: Razorpay (payments + webhook), Twilio Verify (SMS OTP), Cloudinary (im
 | `backend.yml` | `freshdirect-backend/**` | ruff (`E,W,F`, ignore `E501,F821`) → rsync to `~/app/freshdirect-backend` (excludes `.env`) → prune images → `docker compose -f docker-compose.prod.yml build && up -d --remove-orphans` → `alembic upgrade head`. Also patches `.env` CORS to include `shop.gmartfresh.com`. SSH script `command_timeout: 30m`: cold rebuilds (build cache is pruned each deploy) take ~6 to 10+ min, and the 10 min default killed the `99acab3` deploy. |
 | `admin.yml` | `admin/**` | `tsc --noEmit` → build with `VITE_API_BASE_URL=https://api.gmartfresh.com/api/v1` → tar over SSH to `/var/www/admin` → reload nginx |
 | `storefront.yml` | `storefront/**` | `tsc -b` → build → writes nginx vhost for shop.gmartfresh.com → deploy `/var/www/shop` |
-| `mobile.yml` | `freshdirect/**` | `tsc --noEmit` → OTA `eas update` to preview + production on push; EAS builds only on manual dispatch |
+| `mobile.yml` | `freshdirect/**` | `tsc --noEmit` → OTA `eas update` to preview + production on push (plus a runtime-1.0.0 copy); EAS builds only on manual dispatch |
+| `android-release.yml` | tag `android-release-*` or manual | `tsc` → `eas build --profile production --auto-submit`: AAB to Google Play **production** track, `releaseStatus: completed` (full rollout after Google review). The Play service-account key is stored on expo.dev (no key file in repo). Release with `git tag android-release-YYYY-MM-DD && git push origin <tag>`. |
 
 Secrets: `EC2_HOST`, `EC2_SSH_KEY`, `EXPO_TOKEN`. Production secrets live only in the EC2 `.env`.
 
@@ -177,6 +178,8 @@ Ordered by severity. Verify each one before fixing.
 ## 8. Change log (newest first)
 
 Add one line per change: date, short description, files touched.
+
+- 2026-11-01: **Play Store releases from CI.** `eas.json` submit now targets track `production` with `releaseStatus: completed`. It used to be `internal`, which only reached testers. Removed `serviceAccountKeyPath` (the file never existed) so EAS uses the key stored on expo.dev. New `.github/workflows/android-release.yml` (tag-triggered, because nobody can workflow_dispatch from here without gh auth). First release tag: `android-release-2026-11-01`.
 
 - 2026-11-01: **Likes (heart) on every product.** A like is a wishlist entry, so there's one heart across app and web. Product list/detail and wishlist responses gain `like_count` (real count, from `product_service.attach_like_counts`, one grouped query). DELETE `/wishlist/{id}` returns `data.like_count`. The display is deliberately scaled: `formatLikes` = 1k + 0.1k per real like (`freshdirect/lib/likes.ts`, `storefront/src/lib/likes.ts`). Mobile: `store/likesStore.ts` (loaded on login, reset on logout in `_layout`), heart + count on `ProductCard` and the detail hero. Storefront: count added to the existing hearts. Test: `tests/test_like_counts.py`.
 - 2026-11-01: **Product images.** The detail hero is no longer a fixed 1.25:1 box: its height follows the first image's real aspect ratio (`Image.getSize`, clamped 0.75 to 1.6), so it fills the full width, bigger, with no side gaps, crop or hiding. A spinner shows while it loads. Cards and hero load a screen-sized Cloudinary copy via `freshdirect/lib/cdnImage.ts` (`c_limit,w_…,q_auto,f_auto`: shrink-only, never crops; the ~2.1 MB PNGs become ~0.25 MB), because the slow originals looked like a blank image. Removed the blurred backdrop on cards.
