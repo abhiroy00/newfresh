@@ -69,6 +69,10 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           timeout: 300s
+          # `timeout` is only the SSH connect timeout. The script itself is cut
+          # off at command_timeout (default 10m), and a cold rebuild (build
+          # cache is pruned below) of the api + celery images can exceed that.
+          command_timeout: 30m
           script: |
             set -e
             export PATH=$PATH:/usr/bin:/usr/local/bin

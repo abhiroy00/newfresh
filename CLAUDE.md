@@ -85,7 +85,7 @@ External: Razorpay (payments + webhook), Twilio Verify (SMS OTP), Cloudinary (im
 
 | Workflow | Trigger | Does |
 |---|---|---|
-| `backend.yml` | `freshdirect-backend/**` | ruff (`E,W,F`, ignore `E501,F821`) → rsync to `~/app/freshdirect-backend` (excludes `.env`) → prune images → `docker compose -f docker-compose.prod.yml build && up -d --remove-orphans` → `alembic upgrade head`. Also patches `.env` CORS to include `shop.gmartfresh.com`. |
+| `backend.yml` | `freshdirect-backend/**` | ruff (`E,W,F`, ignore `E501,F821`) → rsync to `~/app/freshdirect-backend` (excludes `.env`) → prune images → `docker compose -f docker-compose.prod.yml build && up -d --remove-orphans` → `alembic upgrade head`. Also patches `.env` CORS to include `shop.gmartfresh.com`. SSH script `command_timeout: 30m`: cold rebuilds (build cache is pruned each deploy) take ~6 to 10+ min, and the 10 min default killed the `99acab3` deploy. |
 | `admin.yml` | `admin/**` | `tsc --noEmit` → build with `VITE_API_BASE_URL=https://api.gmartfresh.com/api/v1` → tar over SSH to `/var/www/admin` → reload nginx |
 | `storefront.yml` | `storefront/**` | `tsc -b` → build → writes nginx vhost for shop.gmartfresh.com → deploy `/var/www/shop` |
 | `mobile.yml` | `freshdirect/**` | `tsc --noEmit` → OTA `eas update` to preview + production on push; EAS builds only on manual dispatch |
@@ -176,6 +176,7 @@ Ordered by severity. Verify each one before fixing.
 
 Add one line per change: date, short description, files touched.
 
+- 2026-10-31: Backend deploy for `99acab3` was killed after 603 s by ssh-action's default 10 min `command_timeout`. Set `command_timeout: 30m` in `.github/workflows/backend.yml` and redeployed.
 - 2026-10-31: **Orders blocked by deactivated products.** A cart item whose product an admin deactivated stayed in the cart (counted in the total), and `POST /orders` then failed every time with "Product <uuid> no longer available". Now `cart_service._purge_unavailable` removes such items on every `GET /cart` (response gains additive `removed_unavailable: [names]`), and `create_order` purges, **commits**, then raises a 400 naming the items. Mobile and storefront refresh the cart after a failed order and tell the customer what was removed. Tests: `tests/test_cart_unavailable.py`. Files: `freshdirect-backend/app/services/{cart,order}_service.py`, `freshdirect/store/cartStore.ts`, `freshdirect/app/payment.tsx`, `storefront/src/store/cartStore.ts`, `storefront/src/types/index.ts`.
 - 2026-10-31: Mobile product detail: removed the blurred backdrop copy behind the hero image (one sharp `contain` image on white, matching the storefront's `dd64c98`). `freshdirect/app/product/[id].tsx`. Also found why a user's phone still showed the original screen (header over image, badges on image, raw HTML description): its APK is runtime **1.0.0**, and every OTA since the bump to 1.0.1 (`91b8407`, 2026-10-16) targets 1.0.1, so they never reach it. It needs a new APK.
 - 2026-10-31: Mobile app bug sweep (code review + tsc + `expo export` bundle; not run on a device). Fixed:
