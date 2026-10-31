@@ -5,15 +5,19 @@ import type { WishlistItem } from '@/types'
 interface WishlistState {
   items: WishlistItem[]
   productIds: Set<string>
+  // Latest real like count per product touched this session, so every heart
+  // shows the same figure even where the product list is cached.
+  counts: Record<string, number>
   loading: boolean
   fetchWishlist: () => Promise<void>
-  toggle: (productId: string) => Promise<void>
+  toggle: (productId: string, currentCount?: number) => Promise<void>
   reset: () => void
 }
 
 export const useWishlistStore = create<WishlistState>((set, get) => ({
   items: [],
   productIds: new Set(),
+  counts: {},
   loading: false,
 
   fetchWishlist: async () => {
@@ -33,9 +37,12 @@ export const useWishlistStore = create<WishlistState>((set, get) => ({
     }
   },
 
-  toggle: async (productId: string) => {
-    const { items, productIds } = get()
+  toggle: async (productId: string, currentCount?: number) => {
+    const { items, productIds, counts } = get()
     const wishlisted = productIds.has(productId)
+    if (currentCount !== undefined) {
+      set({ counts: { ...counts, [productId]: Math.max(0, currentCount + (wishlisted ? -1 : 1)) } })
+    }
 
     // Optimistic update so the heart icon feels instant.
     const nextIds = new Set(productIds)
@@ -45,18 +52,23 @@ export const useWishlistStore = create<WishlistState>((set, get) => ({
 
     try {
       if (wishlisted) {
-        await wishlistApi.remove(productId)
+        const { data } = await wishlistApi.remove(productId)
+        const real = data?.data?.like_count
+        if (typeof real === 'number') set({ counts: { ...get().counts, [productId]: real } })
       } else {
         const { data } = await wishlistApi.add(productId)
-        set({ items: [data.data as WishlistItem, ...get().items] })
+        const item = data.data as WishlistItem
+        set({ items: [item, ...get().items] })
+        const real = item.product?.like_count
+        if (typeof real === 'number') set({ counts: { ...get().counts, [productId]: real } })
       }
     } catch {
       // revert on failure
-      set({ items, productIds })
+      set({ items, productIds, counts })
     }
   },
 
-  reset: () => set({ items: [], productIds: new Set() }),
+  reset: () => set({ items: [], productIds: new Set(), counts: {} }),
 }))
 
 window.addEventListener('gmart:logout', () => {

@@ -6,6 +6,7 @@ from fastapi import HTTPException, status
 from slugify import slugify
 
 from app.models.product import Product, Category, Service
+from app.models.wishlist import WishlistItem
 from app.schemas.product import ProductCreate, ProductUpdate, CategoryCreate
 from app.core.redis_client import cache_get, cache_set, cache_delete_pattern
 
@@ -116,6 +117,31 @@ async def list_products(
     }
 
     return output
+
+
+async def attach_like_counts(products: List[Product], db: AsyncSession) -> None:
+    """Set `like_count` (real number of customers who hearted it) on each product.
+
+    A "like" is a wishlist entry — one heart across app and web. Clients turn
+    this into the displayed figure (1k + 0.1k per like).
+    """
+    if not products:
+        return
+    rows = await db.execute(
+        select(WishlistItem.product_id, func.count(WishlistItem.id))
+        .where(WishlistItem.product_id.in_([p.id for p in products]))
+        .group_by(WishlistItem.product_id)
+    )
+    counts = dict(rows.all())
+    for p in products:
+        p.like_count = counts.get(p.id, 0)
+
+
+async def count_likes(product_id: str, db: AsyncSession) -> int:
+    result = await db.execute(
+        select(func.count(WishlistItem.id)).where(WishlistItem.product_id == product_id)
+    )
+    return result.scalar() or 0
 
 
 async def get_product(product_id: str, db: AsyncSession) -> Product:

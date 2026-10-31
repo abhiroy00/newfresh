@@ -170,6 +170,13 @@ export const paymentsApi = {
   }) => api.post('/payments/verify', data),
 };
 
+// Wishlist — a heart/"like" on a product is a wishlist entry
+export const wishlistApi = {
+  list: () => api.get('/wishlist'),
+  add: (productId: string) => api.post(`/wishlist/${productId}`),
+  remove: (productId: string) => api.delete(`/wishlist/${productId}`),
+};
+
 // Support
 export const supportApi = {
   listTickets: () => api.get('/support/tickets'),

@@ -7,6 +7,7 @@ import { formatPrice } from '@/lib/format'
 import { useCartStore } from '@/store/cartStore'
 import { useAuthStore } from '@/store/authStore'
 import { useWishlistStore } from '@/store/wishlistStore'
+import { formatLikes } from '@/lib/likes'
 
 export default function ProductCard({ product }: { product: Product }) {
   const [adding, setAdding] = useState(false)
@@ -16,6 +17,7 @@ export default function ProductCard({ product }: { product: Product }) {
   const openLogin = useAuthStore((s) => s.openLogin)
   const wishlisted = useWishlistStore((s) => s.productIds.has(product.id))
   const toggleWishlist = useWishlistStore((s) => s.toggle)
+  const likeCount = useWishlistStore((s) => s.counts[product.id] ?? product.like_count ?? 0)
 
   const handleToggleWishlist = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -25,7 +27,7 @@ export default function ProductCard({ product }: { product: Product }) {
       openLogin()
       return
     }
-    toggleWishlist(product.id)
+    toggleWishlist(product.id, likeCount)
   }
 
   const discount =
@@ -79,10 +81,11 @@ export default function ProductCard({ product }: { product: Product }) {
           <button
             type="button"
             onClick={handleToggleWishlist}
-            className="w-7 h-7 rounded-full bg-white/90 backdrop-blur flex items-center justify-center shadow-sm hover:scale-110 active:scale-90 transition-transform"
-            aria-label={wishlisted ? 'Remove from wishlist' : 'Save to wishlist'}
+            className="h-7 px-2 rounded-full bg-white/90 backdrop-blur flex items-center gap-1 shadow-sm hover:scale-105 active:scale-95 transition-transform"
+            aria-label={wishlisted ? 'Unlike' : 'Like'}
           >
             <Heart size={14} className={wishlisted ? 'text-error' : 'text-outline'} fill={wishlisted ? 'currentColor' : 'none'} />
+            <span className={`text-[11px] font-extrabold ${wishlisted ? 'text-error' : 'text-on-surface-variant'}`}>{formatLikes(likeCount)}</span>
           </button>
         </div>
 

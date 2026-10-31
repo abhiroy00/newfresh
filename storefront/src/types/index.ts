@@ -18,6 +18,8 @@ export interface Product {
   id: string
   name: string
   slug: string
+  // Real number of customers who liked (wishlisted) it; display via formatLikes.
+  like_count?: number
   description?: string | null
   price: number
   original_price?: number | null

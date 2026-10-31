@@ -9,7 +9,7 @@ from app.models.user import User
 from app.models.product import Carousel
 from app.schemas.product import ProductCreate, ProductUpdate, CategoryCreate, ProductOut
 from app.services.product_service import (
-    list_categories, list_products, get_product,
+    list_categories, list_products, get_product, attach_like_counts,
     create_product, update_product, delete_product,
     get_category, create_category, update_category, delete_category
 )
@@ -133,6 +133,7 @@ async def api_list_products(
 ):
     result = await list_products(db, page=page, per_page=per_page, category_id=category_id,
         search=search, is_featured=is_featured, is_organic=is_organic, sort=sort)
+    await attach_like_counts(result["data"], db)
     # Ensure data is properly serialized
     serialized_data = [ProductOut.model_validate(p, from_attributes=True) for p in result["data"]]
     return {"success": True, "data": serialized_data, "total": result["total"], "page": result["page"], "per_page": result["per_page"], "pages": result["pages"]}
@@ -140,6 +141,7 @@ async def api_list_products(
 @router.get("/products/{product_id}")
 async def api_get_product(product_id: str, db: AsyncSession = Depends(get_db)):
     product = await get_product(product_id, db)
+    await attach_like_counts([product], db)
     return {"success": True, "data": ProductOut.model_validate(product, from_attributes=True)}
 
 @router.post("/admin/products", status_code=201)

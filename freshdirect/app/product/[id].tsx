@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, Pressable, Image, Dimensions, Share,
+  View, Text, StyleSheet, ScrollView, Pressable, Image, Dimensions, Share, ActivityIndicator,
 } from 'react-native';
+import { cdnImage } from '@/lib/cdnImage';
+import { formatLikes } from '@/lib/likes';
+import { useLikesStore } from '@/store/likesStore';
 import { splitProductName } from '@/lib/productName';
 import MarkdownText from '@/components/MarkdownText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,10 +21,15 @@ import { productsApi } from '@/lib/api';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 
 const { width: SCREEN_W } = Dimensions.get('window');
-// Explicit pixel height for hero slides (matches heroContainer's aspectRatio).
-// A percentage height inside the horizontal ScrollView resolves to 0 and the
-// image collapses to nothing.
-const HERO_H = SCREEN_W / 1.25;
+// Hero slides need an explicit pixel height: a percentage height inside the
+// horizontal ScrollView resolves to 0 and the image collapses to nothing.
+// The height follows the image's own aspect ratio, so it fills the full width
+// with no side gaps, no crop and nothing hidden — clamped so an unusually
+// tall/wide image can't take over the screen.
+const MIN_ASPECT = 0.75; // tallest allowed: height = 1.33 × width
+const MAX_ASPECT = 1.6;  // widest allowed
+const heroHeightFor = (aspect: number) =>
+  SCREEN_W / Math.min(MAX_ASPECT, Math.max(MIN_ASPECT, aspect || 1));
 
 interface MineralItem { name: string; value: string; icon?: string }
 interface VitaminItem { name: string; value: string; icon?: string }
@@ -148,7 +156,23 @@ export default function ProductDetailScreen() {
   const [hasAdded, setHasAdded] = useState(false);
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [heroAspect, setHeroAspect] = useState(1);
+  const [loadedImages, setLoadedImages] = useState<Record<string, true>>({});
   const addItem = useCartStore((s) => s.addItem);
+  const liked = useLikesStore((s) => !!s.liked[String(id)]);
+  const storedLikeCount = useLikesStore((s) => s.counts[String(id)]);
+  const toggleLike = useLikesStore((s) => s.toggle);
+
+  // Size the hero to the first image's real shape once we know its URL.
+  const firstImage = product?.primary_image_url || product?.images?.[0]?.url;
+  React.useEffect(() => {
+    if (!firstImage) return;
+    Image.getSize(
+      cdnImage(firstImage, SCREEN_W),
+      (w, h) => { if (w && h) setHeroAspect(w / h); },
+      () => {}, // keep the square default if the size can't be read
+    );
+  }, [firstImage]);
   const insets = useSafeAreaInsets();
 
   const loadProduct = React.useCallback(async () => {
@@ -187,6 +211,8 @@ export default function ProductDetailScreen() {
     ...(product.primary_image_url ? [product.primary_image_url] : []),
     ...galleryUrls.filter((u: string) => u !== product.primary_image_url),
   ];
+  const heroH = heroHeightFor(heroAspect);
+  const likeCount = storedLikeCount ?? product.like_count ?? 0;
   const { en: nameEn, hi: nameHi } = splitProductName(product.name);
 
   // Identify category for fallback tips
@@ -254,7 +280,7 @@ export default function ProductDetailScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
         {/* Hero Image Carousel */}
-        <View style={styles.heroContainer}>
+        <View style={[styles.heroContainer, { height: heroH }]}>
           {imageUrls.length > 0 ? (
             <>
               <ScrollView
@@ -266,9 +292,19 @@ export default function ProductDetailScreen() {
                 }
               >
                 {imageUrls.map((url) => (
-                  // One sharp, uncropped image — no blurred backdrop copy (removed
-                  // on the storefront too, dd64c98).
-                  <Image key={url} source={{ uri: url }} style={styles.heroImage} resizeMode="contain" />
+                  <View key={url} style={{ width: SCREEN_W, height: heroH }}>
+                    {!loadedImages[url] && (
+                      <ActivityIndicator style={StyleSheet.absoluteFill} size="large" color={Colors.primary} />
+                    )}
+                    {/* One sharp, uncropped image (contain) at a screen-sized CDN
+                        copy — the ~2 MB originals looked blank while loading. */}
+                    <Image
+                      source={{ uri: cdnImage(url, SCREEN_W) }}
+                      style={{ width: SCREEN_W, height: heroH }}
+                      resizeMode="contain"
+                      onLoadEnd={() => setLoadedImages((m) => (m[url] ? m : { ...m, [url]: true }))}
+                    />
+                  </View>
                 ))}
               </ScrollView>
               {imageUrls.length > 1 && (
@@ -283,10 +319,20 @@ export default function ProductDetailScreen() {
               )}
             </>
           ) : (
-            <View style={[styles.heroImage, styles.heroPlaceholder]}>
+            <View style={[{ width: SCREEN_W, height: heroH }, styles.heroPlaceholder]}>
               <Leaf size={56} color={Colors.outline} />
             </View>
           )}
+
+          {/* Like (heart) */}
+          <Pressable
+            style={styles.heroLikeBtn}
+            onPress={() => toggleLike(product.id, likeCount)}
+            hitSlop={8}
+          >
+            <Heart size={20} color={liked ? Colors.error : Colors.onSurfaceVariant} fill={liked ? Colors.error : 'transparent'} />
+            <Text style={[styles.heroLikeText, liked && { color: Colors.error }]}>{formatLikes(likeCount)}</Text>
+          </Pressable>
 
         </View>
 
@@ -533,11 +579,18 @@ const styles = StyleSheet.create({
   // ---- HERO ----
   heroContainer: {
     width: '100%',
-    aspectRatio: 1.25,
     backgroundColor: '#fff',
     position: 'relative',
   },
-  heroImage: { width: SCREEN_W, height: HERO_H },
+  heroLikeBtn: {
+    position: 'absolute', top: Spacing.md, right: Spacing.md,
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 12, paddingVertical: 7,
+    ...Shadows.card,
+  },
+  heroLikeText: { fontSize: 13, fontWeight: '800', color: Colors.onSurfaceVariant },
   heroPlaceholder: { alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surfaceContainerLow },
   imageDots: {
     position: 'absolute',

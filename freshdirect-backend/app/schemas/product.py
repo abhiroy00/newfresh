@@ -97,5 +97,7 @@ class ProductOut(BaseModel):
     category: Optional[CategoryOut] = None
     images: List[ProductImageOut] = []
     created_at: datetime
+    # Real number of customers who liked (hearted) it; see attach_like_counts.
+    like_count: int = 0
 
     model_config = {"from_attributes": True}

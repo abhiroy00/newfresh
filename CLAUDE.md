@@ -75,6 +75,7 @@ External: Razorpay (payments + webhook), Twilio Verify (SMS OTP), Cloudinary (im
 - Push: `hooks/usePushNotifications.ts` gets an Expo push token (EAS projectId) and calls `/notifications/register-token`.
 - Don't fall back to `constants/data.ts` demo PRODUCTS/CATEGORIES ids in real flows: they don't exist on the server. (CATEGORIES is still used as a visual fallback on home/categories tabs.)
 - Axios responses: the body is `res.data`, and the payload is `res.data.data`.
+- Product images: render via `cdnImage(url, displayWidth)`, not the raw Cloudinary URL (originals are ~2 MB). Keep `resizeMode="contain"`: images must never be cropped.
 - RN layout gotcha: children of a horizontal `ScrollView` need explicit pixel heights; a `%` height collapses to 0.
 - OTA: `runtimeVersion.policy = appVersion` (1.0.1). Native dependency changes need a new EAS build plus a version bump, because OTA alone won't deliver them.
 - Check what a runtime receives: `curl -H 'expo-platform: android' -H 'expo-runtime-version: 1.0.0' -H 'expo-channel-name: production' -H 'expo-protocol-version: 1' -H 'accept: multipart/mixed' https://u.expo.dev/b6905e08-88ee-4257-ae81-1d5b6318baf3 | grep -o '"createdAt":"[^"]*"'`
@@ -176,6 +177,9 @@ Ordered by severity. Verify each one before fixing.
 ## 8. Change log (newest first)
 
 Add one line per change: date, short description, files touched.
+
+- 2026-11-01: **Likes (heart) on every product.** A like is a wishlist entry, so there's one heart across app and web. Product list/detail and wishlist responses gain `like_count` (real count, from `product_service.attach_like_counts`, one grouped query). DELETE `/wishlist/{id}` returns `data.like_count`. The display is deliberately scaled: `formatLikes` = 1k + 0.1k per real like (`freshdirect/lib/likes.ts`, `storefront/src/lib/likes.ts`). Mobile: `store/likesStore.ts` (loaded on login, reset on logout in `_layout`), heart + count on `ProductCard` and the detail hero. Storefront: count added to the existing hearts. Test: `tests/test_like_counts.py`.
+- 2026-11-01: **Product images.** The detail hero is no longer a fixed 1.25:1 box: its height follows the first image's real aspect ratio (`Image.getSize`, clamped 0.75 to 1.6), so it fills the full width, bigger, with no side gaps, crop or hiding. A spinner shows while it loads. Cards and hero load a screen-sized Cloudinary copy via `freshdirect/lib/cdnImage.ts` (`c_limit,w_…,q_auto,f_auto`: shrink-only, never crops; the ~2.1 MB PNGs become ~0.25 MB), because the slow originals looked like a blank image. Removed the blurred backdrop on cards.
 
 - 2026-10-31: Three requested features:
   - **Family members:** new nullable `gender` column (male/female/other; migration `add_family_member_gender`; a plain string, not a PG enum). The mobile Edit Profile has labelled Age (yrs) / Weight (kg) inputs with unit suffixes, gender chips (required for new members), a "Total: N members" badge, and rows like "Female • Age 30 yrs • Weight 60 kg". Admin Users shows gender. Files: `models/user.py`, `schemas/user.py`, `api/admin.py`, `freshdirect/app/profile-edit.tsx`, `freshdirect/lib/api.ts`, `admin/src/admin/pages/Users.tsx`.

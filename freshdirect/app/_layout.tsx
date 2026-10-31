@@ -6,6 +6,7 @@ import FlashMessage from 'react-native-flash-message';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet } from 'react-native';
 import { useAuthStore } from '@/store/authStore';
+import { useLikesStore } from '@/store/likesStore';
 import CartToast from '@/components/CartToast';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 
@@ -35,6 +36,9 @@ export default function RootLayout() {
       router.replace('/auth/login');
     }
     wasAuthenticated.current = isAuthenticated;
+    // Hearts are per customer: load theirs on login, drop them on logout.
+    if (isAuthenticated) useLikesStore.getState().load();
+    else useLikesStore.getState().reset();
   }, [isAuthenticated]);
 
   usePushNotifications(isAuthenticated);

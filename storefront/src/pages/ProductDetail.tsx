@@ -14,6 +14,7 @@ import ErrorState from '@/components/ui/ErrorState'
 import { useCartStore } from '@/store/cartStore'
 import { useAuthStore } from '@/store/authStore'
 import { useWishlistStore } from '@/store/wishlistStore'
+import { formatLikes } from '@/lib/likes'
 import type { Product } from '@/types'
 
 const NUTRIENT_ICONS: Record<string, string> = {
@@ -42,6 +43,7 @@ export default function ProductDetail() {
   const openLogin = useAuthStore((s) => s.openLogin)
   const toggleWishlist = useWishlistStore((s) => s.toggle)
   const wishlisted = useWishlistStore((s) => s.productIds.has(id || ''))
+  const storedLikeCount = useWishlistStore((s) => s.counts[id || ''])
 
   const { data: product, isLoading, isError, refetch } = useQuery({
     queryKey: ['product', id],
@@ -95,13 +97,15 @@ export default function ProductDetail() {
     }
   }
 
+  const likeCount = storedLikeCount ?? product.like_count ?? 0
+
   const handleToggleWishlist = () => {
     if (!isAuthenticated) {
       toast('Please login to save items to your wishlist')
       openLogin()
       return
     }
-    toggleWishlist(product.id)
+    toggleWishlist(product.id, likeCount)
   }
 
   return (
@@ -191,10 +195,11 @@ export default function ProductDetail() {
             </button>
             <button
               onClick={handleToggleWishlist}
-              className="w-14 shrink-0 rounded-full border-1.5 border-outline-variant flex items-center justify-center hover:scale-105 active:scale-90 transition-transform"
-              aria-label={wishlisted ? 'Remove from wishlist' : 'Save to wishlist'}
+              className="px-4 shrink-0 rounded-full border-1.5 border-outline-variant flex items-center justify-center gap-1.5 hover:scale-105 active:scale-90 transition-transform"
+              aria-label={wishlisted ? 'Unlike' : 'Like'}
             >
               <Heart size={20} className={wishlisted ? 'text-error' : 'text-outline'} fill={wishlisted ? 'currentColor' : 'none'} />
+              <span className={`text-sm font-extrabold ${wishlisted ? 'text-error' : 'text-on-surface-variant'}`}>{formatLikes(likeCount)}</span>
             </button>
           </div>
         </div>

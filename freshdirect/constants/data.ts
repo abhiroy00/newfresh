@@ -9,6 +9,7 @@ export type Product = {
   badgeColor?: string;
   description: string;
   isOrganic?: boolean;
+  likeCount?: number; // real like count from the API (`like_count`)
 };
 
 export type Category = {

@@ -29,6 +29,7 @@ const mapProduct = (p: any) => ({
   badge: p.badge,
   badgeColor: p.badge_color,
   description: p.description || '',
+  likeCount: p.like_count ?? 0,
   isOrganic: p.is_organic,
 });
 

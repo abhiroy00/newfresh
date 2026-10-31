@@ -1,19 +1,35 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Image, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, {
   useSharedValue, useAnimatedStyle, withSpring, withSequence,
 } from 'react-native-reanimated';
 import { showCartToast } from '@/lib/cartToast';
 import { splitProductName } from '@/lib/productName';
-import { ShoppingCart, Plus, ShoppingBag } from 'lucide-react-native';
+import { ShoppingCart, Plus, ShoppingBag, Heart } from 'lucide-react-native';
 import { Colors, BorderRadius, Spacing, Shadows } from '@/constants/theme';
 import { useCartStore } from '@/store/cartStore';
+import { useLikesStore } from '@/store/likesStore';
+import { formatLikes } from '@/lib/likes';
+import { cdnImage } from '@/lib/cdnImage';
+
+// Cards sit two per row.
+const CARD_W = Dimensions.get('window').width / 2;
 import type { Product } from '@/constants/data';
 
 export default function ProductCard({ product, index = 0 }: { product: Product; index?: number }) {
   const router = useRouter();
   const addItem = useCartStore((s) => s.addItem);
+  const liked = useLikesStore((s) => !!product && !!s.liked[product.id]);
+  const likeCount = useLikesStore((s) => (product ? s.counts[product.id] ?? product.likeCount ?? 0 : 0));
+  const toggleLike = useLikesStore((s) => s.toggle);
+  const heartScale = useSharedValue(1);
+  const heartStyle = useAnimatedStyle(() => ({ transform: [{ scale: heartScale.value }] }));
+
+  const handleLike = () => {
+    heartScale.value = withSequence(withSpring(1.35, { damping: 6 }), withSpring(1, { damping: 10 }));
+    toggleLike(product.id, likeCount);
+  };
   const scale = useSharedValue(1);
   const cartScale = useSharedValue(1);
   const cardStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
@@ -47,24 +63,29 @@ export default function ProductCard({ product, index = 0 }: { product: Product; 
         {/* Image */}
         <View style={styles.imageContainer}>
           {product.image ? (
-            <>
-              <Image
-                source={{ uri: product.image }}
-                style={[StyleSheet.absoluteFill, { opacity: 0.7 }]}
-                resizeMode="cover"
-                blurRadius={25}
-              />
-              <Image
-                source={{ uri: product.image }}
-                style={styles.image}
-                resizeMode="contain"
-              />
-            </>
+            // Whole image, never cropped (contain), at a screen-sized CDN copy.
+            <Image
+              source={{ uri: cdnImage(product.image, CARD_W) }}
+              style={styles.image}
+              resizeMode="contain"
+            />
           ) : (
             <View style={[styles.image, styles.imagePlaceholder]}>
               <ShoppingBag size={28} color={Colors.outline} />
             </View>
           )}
+
+          {/* Like (heart) — its own press target so it doesn't open the product */}
+          <Pressable style={styles.likeBtn} onPress={handleLike} hitSlop={6}>
+            <Animated.View style={heartStyle}>
+              <Heart
+                size={15}
+                color={liked ? Colors.error : Colors.onSurfaceVariant}
+                fill={liked ? Colors.error : 'transparent'}
+              />
+            </Animated.View>
+            <Text style={[styles.likeText, liked && { color: Colors.error }]}>{formatLikes(likeCount)}</Text>
+          </Pressable>
         </View>
 
         {/* Info */}
@@ -105,10 +126,19 @@ const styles = StyleSheet.create({
   imageContainer: {
     width: '100%',
     aspectRatio: 1,
-    backgroundColor: Colors.surfaceContainerLow,
+    backgroundColor: '#fff',
     position: 'relative',
   },
   image: { width: '100%', height: '100%' },
+  likeBtn: {
+    position: 'absolute', top: 6, right: 6,
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 7, paddingVertical: 4,
+    ...Shadows.card,
+  },
+  likeText: { fontSize: 10, fontWeight: '800', color: Colors.onSurfaceVariant },
   imagePlaceholder: { alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surfaceContainerLow },
   badge: {
     alignSelf: 'flex-start',
