@@ -46,11 +46,21 @@ jobs:
       # Waits for the build and the submission so this job's result shows
       # whether the release actually reached Play Console.
       - name: Build production AAB and submit to Google Play
+        # On failure, the tail of EAS's output is re-emitted as an error
+        # annotation: annotations show on the run page without opening the
+        # (login-only) raw log, so the reason is visible at a glance.
         run: |
+          set +e
           eas build \
             --platform android \
             --profile production \
             --auto-submit \
-            --non-interactive
+            --non-interactive 2>&1 | tee eas.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            msg=$(tail -40 eas.log | sed 's/\x1b\[[0-9;]*m//g; s/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=EAS build/submit failed::$msg"
+          fi
+          exit "$status"
         env:
           EXPO_PUBLIC_API_URL: https://api.gmartfresh.com
