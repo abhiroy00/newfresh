@@ -68,7 +68,7 @@ External: Razorpay (payments + webhook), Twilio Verify (SMS OTP), Cloudinary (im
 2. Online payment: `POST /payments/create-order {order_id}` creates a Razorpay order, or reuses the existing `razorpay_order_id` on retry. The amount always comes from the DB (minimum 100 paise). Then `POST /payments/verify` checks the signature against **this order's** razorpay_order_id. It's idempotent and sets the order to `paid` + `confirmed`.
 3. Webhook `POST /payments/webhook` (`payment.captured`) is the backup path; it needs `RAZORPAY_WEBHOOK_SECRET` (returns 503 if unset).
 4. Delivery fee = `DELIVERY_FEE` (49) unless subtotal ≥ `FREE_DELIVERY_THRESHOLD` (499). Both come from **env settings**, and the storefront hardcodes 499 in `src/lib/constants.ts`.
-5. Tests: `freshdirect-backend/tests/test_payment_checkout.py` (unittest, mocks DB). See `docs/razorpay-checkout.md`.
+5. Tests: `freshdirect-backend/tests/test_payment_checkout.py` and `test_cart_unavailable.py` (unittest, mocks DB). See `docs/razorpay-checkout.md`.
 
 ### Mobile app notes
 - `EXPO_PUBLIC_API_URL` is the **host only** (`https://api.gmartfresh.com`); `/api/v1` is appended in `lib/api.ts`. Web apps' `VITE_API_BASE_URL` **includes** `/api/v1`.
@@ -148,7 +148,8 @@ Ordered by severity. Verify each one before fixing.
 - Single EC2 host + Docker Compose instead of ECS: cost and simplicity. Celery beat runs **embedded** (`worker -B`) because there's a single worker, so no duplicate schedules (`0560383`).
 - TLS terminates at the ALB (ACM). EC2 serves plain HTTP; nginx serves the SPAs on :80.
 - Deploys prune Docker images/build cache **before** building (the disk filled up, `82db0c6`).
-- `get_db` commits per request, so endpoints use `flush()`, not `commit()`.
+- `get_db` commits per request, so endpoints use `flush()`, not `commit()`. The one exception: a change that must survive an error response (e.g. `create_order` purging unavailable cart items) commits explicitly before raising, because `get_db` rolls back on exceptions.
+- Deactivated products are removed from carts automatically (`_purge_unavailable`) instead of blocking checkout.
 - Cart/order serialization returns plain dicts, never ORM objects, to avoid recursion and `MissingGreenlet` in async.
 - Razorpay amounts are always computed server-side. Verify must match the order's own `razorpay_order_id`.
 - Network errors during token refresh must never log the user out (`dd199c3`).
@@ -175,6 +176,7 @@ Ordered by severity. Verify each one before fixing.
 
 Add one line per change: date, short description, files touched.
 
+- 2026-10-31: **Orders blocked by deactivated products.** A cart item whose product an admin deactivated stayed in the cart (counted in the total), and `POST /orders` then failed every time with "Product <uuid> no longer available". Now `cart_service._purge_unavailable` removes such items on every `GET /cart` (response gains additive `removed_unavailable: [names]`), and `create_order` purges, **commits**, then raises a 400 naming the items. Mobile and storefront refresh the cart after a failed order and tell the customer what was removed. Tests: `tests/test_cart_unavailable.py`. Files: `freshdirect-backend/app/services/{cart,order}_service.py`, `freshdirect/store/cartStore.ts`, `freshdirect/app/payment.tsx`, `storefront/src/store/cartStore.ts`, `storefront/src/types/index.ts`.
 - 2026-10-31: Mobile product detail: removed the blurred backdrop copy behind the hero image (one sharp `contain` image on white, matching the storefront's `dd64c98`). `freshdirect/app/product/[id].tsx`. Also found why a user's phone still showed the original screen (header over image, badges on image, raw HTML description): its APK is runtime **1.0.0**, and every OTA since the bump to 1.0.1 (`91b8407`, 2026-10-16) targets 1.0.1, so they never reach it. It needs a new APK.
 - 2026-10-31: Mobile app bug sweep (code review + tsc + `expo export` bundle; not run on a device). Fixed:
   - Search always empty: it read `response.data` (the body) instead of `response.data.data`. Added a stale-response guard. `app/search.tsx`

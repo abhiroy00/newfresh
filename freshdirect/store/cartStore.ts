@@ -50,6 +50,15 @@ export const useCartStore = create<CartState>((set, get) => ({
         delivery_fee: cart.delivery_fee,
         total: cart.total,
       });
+      // The server drops products an admin deactivated; say so instead of
+      // letting them vanish (and the total change) without explanation.
+      const removed: string[] = cart.removed_unavailable || [];
+      if (removed.length) {
+        appAlert(
+          'Cart updated',
+          `${removed.join(', ')} ${removed.length === 1 ? 'is' : 'are'} no longer available and ${removed.length === 1 ? 'was' : 'were'} removed from your cart.`,
+        );
+      }
     } catch (e) {
       console.warn('Failed to fetch cart:', e);
     } finally {

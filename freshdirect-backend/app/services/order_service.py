@@ -11,7 +11,7 @@ from app.models.order import Order, OrderItem, OrderStatus
 from app.models.user import Address
 from app.models.product import Product
 from app.schemas.order import OrderCreate
-from app.services.cart_service import get_or_create_cart, clear_cart
+from app.services.cart_service import get_or_create_cart, clear_cart, _purge_unavailable
 from app.core.config import settings
 
 
@@ -33,6 +33,21 @@ async def create_order(user_id: str, payload: OrderCreate, db: AsyncSession) -> 
 
     # Get cart
     cart = await get_or_create_cart(user_id, db)
+
+    # Deactivated products must not block the whole order. Remove them and
+    # commit *before* raising — get_db rolls back on exceptions, which would
+    # otherwise undo the removal and leave the customer stuck on retry.
+    removed = await _purge_unavailable(cart, db)
+    if removed:
+        await db.commit()
+        names = ", ".join(f"'{n}'" for n in removed)
+        raise HTTPException(
+            status_code=400,
+            detail=f"{names} {'is' if len(removed) == 1 else 'are'} no longer available and "
+                   f"{'has' if len(removed) == 1 else 'have'} been removed from your cart. "
+                   "Please review your cart total and place the order again.",
+        )
+
     if not cart.items:
         raise HTTPException(status_code=400, detail="Cart is empty")
 
@@ -45,7 +60,13 @@ async def create_order(user_id: str, payload: OrderCreate, db: AsyncSession) -> 
         )
         product = prod_result.scalar_one_or_none()
         if not product:
-            raise HTTPException(status_code=400, detail=f"Product {item.product_id} no longer available")
+            # Only reachable if a product was deactivated mid-request (the purge
+            # above handles the normal case). Name it rather than the raw UUID.
+            name = item.product.name if item.product is not None else "An item in your cart"
+            raise HTTPException(
+                status_code=400,
+                detail=f"'{name}' is no longer available. Please remove it from your cart and try again.",
+            )
         if product.stock < item.quantity:
             raise HTTPException(status_code=400, detail=f"'{product.name}' only has {product.stock} units left")
 

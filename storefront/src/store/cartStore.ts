@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import toast from 'react-hot-toast'
 import { cartApi } from '@/api/endpoints'
 import type { Cart, CartItem } from '@/types'
 
@@ -30,6 +31,10 @@ function applyCart(set: (partial: Partial<CartState>) => void, cart: Cart) {
     total: cart.total,
     item_count: cart.item_count,
   })
+  const removed = cart.removed_unavailable || []
+  if (removed.length) {
+    toast(`${removed.join(', ')} ${removed.length === 1 ? 'is' : 'are'} no longer available and ${removed.length === 1 ? 'was' : 'were'} removed from your cart.`)
+  }
 }
 
 export const useCartStore = create<CartState>((set, get) => ({

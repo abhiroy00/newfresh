@@ -57,14 +57,34 @@ def _serialize_item(item: CartItem) -> dict:
     }
 
 
+async def _purge_unavailable(cart: Cart, db: AsyncSession) -> list[str]:
+    """Drop items whose product was deactivated by an admin.
+
+    Left in, they inflate the cart total and make every order attempt fail
+    with "no longer available" until the customer finds and removes them.
+    Returns the removed product names so clients can tell the customer.
+    """
+    unavailable = [i for i in cart.items if i.product is None or not i.product.is_active]
+    if not unavailable:
+        return []
+    for item in unavailable:
+        await db.delete(item)
+    cart.items = [i for i in cart.items if i not in unavailable]
+    await db.flush()
+    return [i.product.name if i.product is not None else "An item" for i in unavailable]
+
+
 async def get_cart(user_id: str, db: AsyncSession) -> dict:
     cart = await get_or_create_cart(user_id, db)
+    removed = await _purge_unavailable(cart, db)
     totals = _calculate_totals(cart)
     return {
         **totals,
         "id": cart.id,
         "items": [_serialize_item(i) for i in cart.items],
         "item_count": len(cart.items),
+        # Additive field: names of items just removed because they're no longer sold.
+        "removed_unavailable": removed,
     }
 
 

@@ -177,6 +177,9 @@ export default function PaymentScreen() {
       } else {
         appAlert('Order Failed', detail || 'Could not place your order. Please try again.');
       }
+      // The server may have changed the cart (unavailable items removed, stock
+      // limits) — resync so the summary shows the real total before a retry.
+      if (!pendingOrder) fetchCart();
     } finally {
       setPlacing(false);
     }

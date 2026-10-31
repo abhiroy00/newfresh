@@ -55,6 +55,8 @@ export interface Cart {
   delivery_fee: number
   total: number
   item_count: number
+  // Names of items the server just dropped because they're no longer sold.
+  removed_unavailable?: string[]
 }
 
 export interface WishlistItem {
