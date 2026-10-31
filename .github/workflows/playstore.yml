@@ -6,6 +6,12 @@ on:
     paths:
       - 'freshdirect/**'
       - '.github/workflows/playstore.yml'
+  # PRs only check that the bundle builds (debug-signed, never uploaded).
+  pull_request:
+    branches: [main]
+    paths:
+      - 'freshdirect/**'
+      - '.github/workflows/playstore.yml'
   workflow_dispatch:
     inputs:
       track:
@@ -64,6 +70,7 @@ jobs:
           EXPO_UPDATES_CHANNEL: production
 
       - name: Decode upload keystore
+        if: github.event_name != 'pull_request'
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
@@ -91,6 +98,7 @@ jobs:
           retention-days: 14
 
       - name: Upload to Google Play (${{ inputs.track || 'internal' }})
+        if: github.event_name != 'pull_request'
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
