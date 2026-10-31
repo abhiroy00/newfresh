@@ -110,6 +110,7 @@ class FamilyMember(Base):
     name: Mapped[str | None] = mapped_column(String(120), nullable=True)
     age: Mapped[int] = mapped_column(Integer, nullable=False)
     weight_kg: Mapped[float] = mapped_column(Float, nullable=False)
+    gender: Mapped[str | None] = mapped_column(String(10), nullable=True)  # male, female, other
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

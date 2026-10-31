@@ -115,11 +115,12 @@ export const usersApi = {
 };
 
 // Family Members
+export type Gender = 'male' | 'female' | 'other';
 export const familyMembersApi = {
   list: () => api.get('/users/family-members'),
-  create: (data: { name?: string; age: number; weight_kg: number }) =>
+  create: (data: { name?: string; age: number; weight_kg: number; gender?: Gender }) =>
     api.post('/users/family-members', data),
-  update: (id: string, data: { name?: string; age?: number; weight_kg?: number }) =>
+  update: (id: string, data: { name?: string; age?: number; weight_kg?: number; gender?: Gender }) =>
     api.patch(`/users/family-members/${id}`, data),
   remove: (id: string) => api.delete(`/users/family-members/${id}`),
 };
@@ -150,8 +151,11 @@ export const ordersApi = {
   list: (params?: { page?: number; per_page?: number }) =>
     api.get('/orders', { params }),
   detail: (id: string) => api.get(`/orders/${id}`),
-  create: (payload: { address_id: string; payment_method?: string; notes?: string }) =>
-    api.post('/orders', payload),
+  create: (payload: {
+    address_id: string; payment_method?: string; notes?: string;
+    delivery_slot?: string; delivery_date?: string;
+  }) => api.post('/orders', payload),
+  deliverySlots: () => api.get('/orders/delivery-slots'),
   cancel: (id: string, reason?: string) =>
     api.post(`/orders/${id}/cancel`, { reason }),
 };

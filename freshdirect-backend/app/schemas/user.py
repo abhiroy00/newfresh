@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Literal, Optional
 from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
 
@@ -70,16 +70,21 @@ class AddressOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+Gender = Literal["male", "female", "other"]
+
+
 class FamilyMemberCreate(BaseModel):
     name: Optional[str] = None
     age: int = Field(ge=0, le=120)
     weight_kg: float = Field(gt=0, le=300)
+    gender: Optional[Gender] = None
 
 
 class FamilyMemberUpdate(BaseModel):
     name: Optional[str] = None
     age: Optional[int] = Field(default=None, ge=0, le=120)
     weight_kg: Optional[float] = Field(default=None, gt=0, le=300)
+    gender: Optional[Gender] = None
 
 
 class FamilyMemberOut(BaseModel):
@@ -87,5 +92,6 @@ class FamilyMemberOut(BaseModel):
     name: Optional[str] = None
     age: int
     weight_kg: float
+    gender: Optional[str] = None
 
     model_config = {"from_attributes": True}

@@ -9,10 +9,17 @@ import { showMessage } from 'react-native-flash-message';
 import { ChevronLeft, User, Mail, Phone, Check, Users, Plus, Trash2, X } from 'lucide-react-native';
 import { Colors, BorderRadius, Spacing, Shadows } from '@/constants/theme';
 import { useAuthStore } from '@/store/authStore';
-import { usersApi, familyMembersApi } from '@/lib/api';
+import { usersApi, familyMembersApi, type Gender } from '@/lib/api';
 import { formatPhone } from '@/lib/phone';
 
-type FamilyMember = { id: string; name?: string | null; age: number; weight_kg: number };
+type FamilyMember = { id: string; name?: string | null; age: number; weight_kg: number; gender?: Gender | null };
+
+const GENDER_OPTIONS: { value: Gender; label: string }[] = [
+  { value: 'male', label: 'Male' },
+  { value: 'female', label: 'Female' },
+  { value: 'other', label: 'Other' },
+];
+const genderLabel = (g?: string | null) => GENDER_OPTIONS.find((o) => o.value === g)?.label;
 
 export default function ProfileEditScreen() {
   const router = useRouter();
@@ -30,6 +37,7 @@ export default function ProfileEditScreen() {
   const [memberName, setMemberName] = React.useState('');
   const [memberAge, setMemberAge] = React.useState('');
   const [memberWeight, setMemberWeight] = React.useState('');
+  const [memberGender, setMemberGender] = React.useState<Gender | null>(null);
   const [addingMember, setAddingMember] = React.useState(false);
   const [removingMemberId, setRemovingMemberId] = React.useState<string | null>(null);
 
@@ -62,13 +70,15 @@ export default function ProfileEditScreen() {
   const memberWeightNum = Number(memberWeight);
   const memberFormValid =
     memberAge.trim().length > 0 && memberAgeNum >= 0 && memberAgeNum <= 120 &&
-    memberWeight.trim().length > 0 && memberWeightNum > 0 && memberWeightNum <= 300;
+    memberWeight.trim().length > 0 && memberWeightNum > 0 && memberWeightNum <= 300 &&
+    memberGender !== null;
 
   const resetAddMemberForm = () => {
     setShowAddMember(false);
     setMemberName('');
     setMemberAge('');
     setMemberWeight('');
+    setMemberGender(null);
   };
 
   const handleAddMember = async () => {
@@ -79,6 +89,7 @@ export default function ProfileEditScreen() {
         name: memberName.trim() || undefined,
         age: memberAgeNum,
         weight_kg: memberWeightNum,
+        gender: memberGender ?? undefined,
       });
       setFamilyMembers((prev) => [...prev, data.data]);
       resetAddMemberForm();
@@ -205,7 +216,12 @@ export default function ProfileEditScreen() {
         {/* Family Members */}
         <View style={styles.familyHeaderRow}>
           <Users size={16} color={Colors.onSurfaceVariant} />
-          <Text style={[styles.label, { marginTop: 0, marginBottom: 0 }]}>Family Members</Text>
+          <Text style={[styles.label, { marginTop: 0, marginBottom: 0, flex: 1 }]}>Family Members</Text>
+          <View style={styles.familyCountBadge}>
+            <Text style={styles.familyCountText}>
+              Total: {familyMembers.length} {familyMembers.length === 1 ? 'member' : 'members'}
+            </Text>
+          </View>
         </View>
 
         {familyMembers.map((m) => (
@@ -215,7 +231,9 @@ export default function ProfileEditScreen() {
             </View>
             <View style={{ flex: 1 }}>
               {!!m.name && <Text style={styles.memberName}>{m.name}</Text>}
-              <Text style={styles.memberDetail}>Age {m.age} • {m.weight_kg} kg</Text>
+              <Text style={styles.memberDetail}>
+                {[genderLabel(m.gender), `Age ${m.age} yrs`, `Weight ${m.weight_kg} kg`].filter(Boolean).join(' • ')}
+              </Text>
             </View>
             <Pressable
               style={styles.memberDeleteBtn}
@@ -247,22 +265,54 @@ export default function ProfileEditScreen() {
               </Pressable>
             </View>
             <View style={styles.addMemberRow}>
-              <TextInput
-                style={[styles.input, styles.addMemberSmallInput]}
-                placeholder="Age"
-                placeholderTextColor={Colors.outlineVariant}
-                value={memberAge}
-                onChangeText={setMemberAge}
-                keyboardType="number-pad"
-              />
-              <TextInput
-                style={[styles.input, styles.addMemberSmallInput]}
-                placeholder="Weight (kg)"
-                placeholderTextColor={Colors.outlineVariant}
-                value={memberWeight}
-                onChangeText={setMemberWeight}
-                keyboardType="decimal-pad"
-              />
+              {/* Labels + unit suffixes stay visible after typing — placeholders alone vanish. */}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.fieldLabel}>Age</Text>
+                <View style={styles.unitInputWrap}>
+                  <TextInput
+                    style={[styles.input, styles.unitInput]}
+                    placeholder="e.g. 32"
+                    placeholderTextColor={Colors.outlineVariant}
+                    value={memberAge}
+                    onChangeText={(v) => setMemberAge(v.replace(/[^0-9]/g, ''))}
+                    keyboardType="number-pad"
+                    maxLength={3}
+                  />
+                  <Text style={styles.unitSuffix}>yrs</Text>
+                </View>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.fieldLabel}>Weight</Text>
+                <View style={styles.unitInputWrap}>
+                  <TextInput
+                    style={[styles.input, styles.unitInput]}
+                    placeholder="e.g. 65"
+                    placeholderTextColor={Colors.outlineVariant}
+                    value={memberWeight}
+                    onChangeText={(v) => setMemberWeight(v.replace(/[^0-9.]/g, ''))}
+                    keyboardType="decimal-pad"
+                    maxLength={5}
+                  />
+                  <Text style={styles.unitSuffix}>kg</Text>
+                </View>
+              </View>
+            </View>
+            <View>
+              <Text style={styles.fieldLabel}>Gender</Text>
+              <View style={styles.genderRow}>
+                {GENDER_OPTIONS.map((o) => {
+                  const active = memberGender === o.value;
+                  return (
+                    <Pressable
+                      key={o.value}
+                      style={[styles.genderChip, active && styles.genderChipActive]}
+                      onPress={() => setMemberGender(o.value)}
+                    >
+                      <Text style={[styles.genderChipText, active && styles.genderChipTextActive]}>{o.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
             <Pressable
               style={[styles.addMemberSaveBtn, !memberFormValid && { opacity: 0.5 }]}
@@ -395,6 +445,28 @@ const styles = StyleSheet.create({
     flex: 1, backgroundColor: Colors.surfaceContainerLow, borderRadius: BorderRadius.lg,
     paddingHorizontal: Spacing.md, paddingVertical: 10,
   },
+  familyCountBadge: {
+    backgroundColor: Colors.primaryContainer, borderRadius: BorderRadius.full,
+    paddingHorizontal: 10, paddingVertical: 3,
+  },
+  familyCountText: { fontSize: 12, fontWeight: '700', color: Colors.onPrimaryContainer },
+  fieldLabel: { fontSize: 12, fontWeight: '700', color: Colors.onSurfaceVariant, marginBottom: 4 },
+  unitInputWrap: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: Colors.surfaceContainerLow, borderRadius: BorderRadius.lg,
+    paddingHorizontal: Spacing.md,
+  },
+  unitInput: { paddingVertical: 10 },
+  unitSuffix: { fontSize: 14, fontWeight: '700', color: Colors.onSurfaceVariant, marginLeft: 4 },
+  genderRow: { flexDirection: 'row', gap: Spacing.sm },
+  genderChip: {
+    flex: 1, alignItems: 'center', paddingVertical: 9,
+    borderRadius: BorderRadius.full, borderWidth: 1.5, borderColor: Colors.outlineVariant,
+    backgroundColor: Colors.surfaceContainerLow,
+  },
+  genderChipActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryContainer },
+  genderChipText: { fontSize: 13, fontWeight: '600', color: Colors.onSurfaceVariant },
+  genderChipTextActive: { color: Colors.onPrimaryContainer, fontWeight: '700' },
   addMemberSaveBtn: {
     backgroundColor: Colors.primary, borderRadius: BorderRadius.lg,
     height: 42, alignItems: 'center', justifyContent: 'center',
