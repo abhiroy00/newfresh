@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { Stack } from 'expo-router';
+import { useEffect, useRef } from 'react';
+import { Stack, useRouter } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import FlashMessage from 'react-native-flash-message';
@@ -25,6 +25,17 @@ export default function RootLayout() {
   useEffect(() => {
     loadFromStorage();
   }, []);
+
+  // When a live session ends (refresh token rejected by the server), send the
+  // user to login instead of leaving them on a screen where every call fails.
+  const router = useRouter();
+  const wasAuthenticated = useRef(false);
+  useEffect(() => {
+    if (wasAuthenticated.current && !isAuthenticated) {
+      router.replace('/auth/login');
+    }
+    wasAuthenticated.current = isAuthenticated;
+  }, [isAuthenticated]);
 
   usePushNotifications(isAuthenticated);
 

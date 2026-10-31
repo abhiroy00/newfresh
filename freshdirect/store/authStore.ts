@@ -12,6 +12,9 @@ type AuthState = {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
+  // True once loadFromStorage has finished — routing must wait for this,
+  // otherwise a slow SecureStore read sends a logged-in user to login.
+  hydrated: boolean;
   setUser: (user: User, token?: string) => Promise<void>;
   logout: () => Promise<void>;
   loadFromStorage: () => Promise<void>;
@@ -21,6 +24,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   token: null,
   isAuthenticated: false,
+  hydrated: false,
 
   setUser: async (user, token) => {
     // Check if we're on web
@@ -91,6 +95,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       }
     } catch (e) {
       console.warn('Failed to load auth from storage:', e);
+    } finally {
+      set({ hydrated: true });
     }
   },
 }));

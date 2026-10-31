@@ -1,5 +1,6 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
+import { useAuthStore } from '@/store/authStore';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -23,18 +24,6 @@ const setToken = async (key: string, value: string): Promise<void> => {
       await SecureStore.setItemAsync(key, value);
     } catch {
       console.warn(`Failed to set ${key}`);
-    }
-  }
-};
-
-const removeToken = async (key: string): Promise<void> => {
-  if (typeof window !== 'undefined' && window.localStorage) {
-    localStorage.removeItem(key);
-  } else {
-    try {
-      await SecureStore.deleteItemAsync(key);
-    } catch {
-      console.warn(`Failed to delete ${key}`);
     }
   }
 };
@@ -82,8 +71,9 @@ api.interceptors.response.use(
           // force a fresh login every time.
           const status = refreshError?.response?.status;
           if (status === 401 || status === 400) {
-            await removeToken('auth_token');
-            await removeToken('refresh_token');
+            // Session is really over — clear tokens *and* the store, otherwise
+            // the app keeps acting logged in while every call fails.
+            await useAuthStore.getState().logout();
           }
         }
       }
@@ -100,7 +90,11 @@ export const authApi = {
     api.post('/auth/verify-otp', { phone, otp }),
   refresh: (refresh_token: string) =>
     api.post('/auth/refresh', { refresh_token }),
-  logout: () => api.post('/auth/logout'),
+  // Send the refresh token so the server revokes it too, not just the access token.
+  logout: async () => {
+    const refresh_token = await getToken('refresh_token');
+    return api.post('/auth/logout', refresh_token ? { refresh_token } : {});
+  },
 };
 
 // Users

@@ -34,13 +34,15 @@ export default function LocationScreen() {
 
   const { refreshControl } = usePullRefresh(() => fetchAddresses());
 
-  const fetchAddresses = async () => {
+  const fetchAddresses = async (preferId?: string) => {
     try {
       const { data } = await usersApi.listAddresses();
       const addrs = data.data || [];
       setAddresses(addrs);
-      const def = addrs.find((a: any) => a.is_default) || addrs[0];
-      if (def) setSelected(def.id);
+      // preferId keeps a just-saved address selected instead of snapping back to the default.
+      const pick = (preferId && addrs.find((a: any) => a.id === preferId))
+        || addrs.find((a: any) => a.is_default) || addrs[0];
+      if (pick) setSelected(pick.id);
     } catch (e) {
       console.warn('Failed to fetch addresses:', e);
     } finally {
@@ -202,8 +204,7 @@ export default function LocationScreen() {
         onSaved={(addr) => {
           setModalVisible(false);
           setEditingAddress(null);
-          fetchAddresses();
-          if (addr?.id) setSelected(addr.id);
+          fetchAddresses(addr?.id);
         }}
       />
 

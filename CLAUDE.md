@@ -73,6 +73,8 @@ External: Razorpay (payments + webhook), Twilio Verify (SMS OTP), Cloudinary (im
 ### Mobile app notes
 - `EXPO_PUBLIC_API_URL` is the **host only** (`https://api.gmartfresh.com`); `/api/v1` is appended in `lib/api.ts`. Web apps' `VITE_API_BASE_URL` **includes** `/api/v1`.
 - Push: `hooks/usePushNotifications.ts` gets an Expo push token (EAS projectId) and calls `/notifications/register-token`.
+- Don't fall back to `constants/data.ts` demo PRODUCTS/CATEGORIES ids in real flows: they don't exist on the server. (CATEGORIES is still used as a visual fallback on home/categories tabs.)
+- Axios responses: the body is `res.data`, and the payload is `res.data.data`.
 - RN layout gotcha: children of a horizontal `ScrollView` need explicit pixel heights; a `%` height collapses to 0.
 - OTA: `runtimeVersion.policy = appVersion` (1.0.1). Native dependency changes need a new EAS build plus a version bump, because OTA alone won't deliver them.
 
@@ -135,6 +137,8 @@ Ordered by severity. Verify each one before fixing.
 9. Admin `getOrders` sends a `search` param that `/admin/orders` ignores.
 10. `cache_delete_pattern` uses `KEYS` (blocking). That's fine at the current scale.
 11. Stale deployment docs/infra (see section 3).
+12. Mobile: there's no stock awareness in the UI (out-of-stock products can still be tapped "add"; the server rejects them and the app now alerts). The categories screen loads at most 100 products and filters client-side. `profile-edit`/`help`/`safety`/`track` weren't changed in the 2026-10-31 sweep.
+13. Mobile: paid orders can't be self-cancelled (deliberate until refunds exist; see 5). Support handles them.
 
 ---
 
@@ -170,6 +174,17 @@ Ordered by severity. Verify each one before fixing.
 
 Add one line per change: date, short description, files touched.
 
+- 2026-10-31: Mobile app bug sweep (code review + tsc + `expo export` bundle; not run on a device). Fixed:
+  - Search always empty: it read `response.data` (the body) instead of `response.data.data`. Added a stale-response guard. `app/search.tsx`
+  - Fake demo products (`constants/data.ts` PRODUCTS, ids like `p1`) shown on error/loading in home, categories and search, and always on `/vegetables`. Removed the fallbacks; home "View all" now goes to `/categories`; deleted `app/vegetables.tsx`. Categories fetch `per_page=100` (backend max).
+  - Checkout retry: a cancelled/failed Razorpay payment left the order pending with the server cart emptied, so "Pay" again failed with "Cart is empty". Now reuses `pendingOrder` (like the storefront), keeps its totals, locks the address, blocks switching to COD. `app/payment.tsx`
+  - Checkout "Change" address never applied (payment kept the old selection; location confirms by setting default). Newly saved address didn't stay selected on location. `app/payment.tsx`, `app/location.tsx`
+  - Order detail: added Cancel (pending/confirmed, unpaid only, because there are no refunds yet) and "Complete Payment" for pending online orders. `app/order/[id].tsx`
+  - Status labels: `packing`/`refunded` showed raw. `app/tabs/orders.tsx`, `app/order/[id].tsx`
+  - Cold start: index redirected after a fixed 100 ms, so slow SecureStore sent logged-in users to login. Added `hydrated` to authStore. `store/authStore.ts`, `app/index.tsx`
+  - Logout now revokes tokens server-side (sends refresh token) and resets the cart store. A rejected refresh now logs out the store and `_layout` routes to login. `lib/api.ts`, `app/tabs/profile.tsx`, `store/cartStore.ts`, `app/_layout.tsx`
+  - Add to cart: failure (e.g. out of stock) was silent after the "added" toast, so it now alerts the server message. No duplicate optimistic row; correct image. `store/cartStore.ts`
+  - Product detail Share button did nothing; now shares a shop.gmartfresh.com link. `app/product/[id].tsx`
 - 2026-10-31: Fixed blank hero image on mobile product detail. The blurred-backdrop wrapper (`31a7800`) used `height: '100%'` inside a horizontal ScrollView, which resolved to 0. Slides now use an explicit `HERO_H = SCREEN_W / 1.25`. Files: `freshdirect/app/product/[id].tsx`.
 
 - 2026-10-27: Created this CLAUDE.md after a full codebase review. No code changes.

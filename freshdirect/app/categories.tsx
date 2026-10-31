@@ -6,7 +6,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, Search } from 'lucide-react-native';
 import { Colors, BorderRadius, Spacing } from '@/constants/theme';
-import { CATEGORIES, PRODUCTS } from '@/constants/data';
+import { CATEGORIES } from '@/constants/data';
+
+// Stable reference: useAsyncData's refetch depends on the fallback identity.
+const EMPTY_PRODUCTS: any[] = [];
 import ProductCard from '@/components/ProductCard';
 import { productsApi } from '@/lib/api';
 import { useAsyncData } from '@/hooks/useAsyncData';
@@ -49,17 +52,18 @@ export default function CategoriesScreen() {
 
   const fetchProducts = useCallback(async () => {
     try {
-      const res = await productsApi.list({ page: 1, per_page: 50 });
+      // Backend caps per_page at 100; category filtering happens client-side.
+      const res = await productsApi.list({ page: 1, per_page: 100 });
       const prods = res.data?.items || res.data?.data;
-      return Array.isArray(prods) && prods.length ? prods.map(mapProduct) : PRODUCTS;
+      return Array.isArray(prods) ? prods.map(mapProduct) : [];
     } catch (e) {
       console.error('Products fetch error:', e);
-      return PRODUCTS;
+      return [];
     }
   }, []);
 
   const categoriesQuery = useAsyncData<any[]>(fetchCategories, CATEGORIES);
-  const productsQuery = useAsyncData<any[]>(fetchProducts, PRODUCTS);
+  const productsQuery = useAsyncData<any[]>(fetchProducts, EMPTY_PRODUCTS);
 
   const { refreshControl } = usePullRefresh(() =>
     Promise.all([categoriesQuery.refetch(), productsQuery.refetch()]),

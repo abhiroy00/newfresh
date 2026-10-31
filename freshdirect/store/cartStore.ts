@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { cartApi } from '@/lib/api';
+import { appAlert } from '@/lib/appAlert';
 
 export type CartItem = {
   id: string;
@@ -27,6 +28,7 @@ type CartState = {
   removeItem: (itemId: string) => Promise<void>;
   updateQuantity: (itemId: string, quantity: number) => Promise<void>;
   clearCart: () => Promise<void>;
+  reset: () => void;
   totalItems: () => number;
 };
 
@@ -59,7 +61,18 @@ export const useCartStore = create<CartState>((set, get) => ({
     const prev = get().items;
 
     // Optimistic update: add item immediately to feel instant
-    if (productDetails) {
+    const existing = prev.find((i) => i.product_id === product_id);
+    if (existing) {
+      // Bump the existing row — the server merges quantities, so a second
+      // temp row would flash a duplicate until the response lands.
+      set({
+        items: prev.map((i) =>
+          i.product_id === product_id
+            ? { ...i, quantity: i.quantity + quantity, item_total: i.price_at_add * (i.quantity + quantity) }
+            : i
+        ),
+      });
+    } else if (productDetails) {
       const newItem: CartItem = {
         id: `temp-${Date.now()}`, // Temporary ID
         product_id,
@@ -71,7 +84,8 @@ export const useCartStore = create<CartState>((set, get) => ({
           name: productDetails.name,
           unit: productDetails.unit,
           price: productDetails.price,
-          primary_image_url: productDetails.primary_image_url,
+          // ProductCard passes the mapped shape (`image`), detail passes the API shape.
+          primary_image_url: productDetails.primary_image_url || productDetails.image,
         },
       };
       set({ items: [...prev, newItem] });
@@ -88,9 +102,15 @@ export const useCartStore = create<CartState>((set, get) => ({
         total: cart.total,
       });
     } catch (e: any) {
-      // Rollback if API fails
+      // Rollback if API fails, and say why — the caller already showed an
+      // "added" toast, so a silent rollback looks like the item vanished.
       set({ items: prev });
-      console.warn('Failed to add item:', e.response?.data?.detail || e);
+      const detail = e.response?.data?.detail;
+      appAlert(
+        'Could not add to cart',
+        typeof detail === 'string' ? detail : 'Please check your connection and try again.',
+      );
+      console.warn('Failed to add item:', detail || e);
     }
   },
 
@@ -154,6 +174,9 @@ export const useCartStore = create<CartState>((set, get) => ({
       set({ items: [], subtotal: 0, delivery_fee: 0, total: 0 });
     }
   },
+
+  // Local-only wipe (logout) — the server cart belongs to the old user and stays.
+  reset: () => set({ items: [], subtotal: 0, delivery_fee: 0, total: 0 }),
 
   totalItems: () => get().items.reduce((sum, i) => sum + i.quantity, 0),
 }));

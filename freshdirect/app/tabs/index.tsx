@@ -10,7 +10,10 @@ import {
   Zap,
 } from 'lucide-react-native';
 import { Colors, BorderRadius, Spacing, Shadows } from '@/constants/theme';
-import { CATEGORIES, PRODUCTS } from '@/constants/data';
+import { CATEGORIES } from '@/constants/data';
+
+// Stable reference: useAsyncData's refetch depends on the fallback identity.
+const EMPTY_PRODUCTS: any[] = [];
 import ProductCard from '@/components/ProductCard';
 import ProductSkeleton from '@/components/ProductSkeleton';
 import { useAuthStore } from '@/store/authStore';
@@ -114,10 +117,12 @@ export default function HomeScreen() {
     try {
       const res = await productsApi.list({ page: 1, per_page: 20 });
       const prods = res.data?.items || res.data?.data;
-      return Array.isArray(prods) && prods.length ? prods.map(mapProduct) : PRODUCTS;
+      // No demo-product fallback: their ids don't exist on the server, so
+      // tapping or adding them fails.
+      return Array.isArray(prods) ? prods.map(mapProduct) : [];
     } catch (e) {
       console.error('Products fetch error:', e);
-      return PRODUCTS;
+      return [];
     }
   }, []);
 
@@ -132,7 +137,7 @@ export default function HomeScreen() {
     }
   }, []);
 
-  const productsQuery = useAsyncData<any[]>(fetchProducts, PRODUCTS);
+  const productsQuery = useAsyncData<any[]>(fetchProducts, EMPTY_PRODUCTS);
   const categoriesQuery = useAsyncData<any[]>(fetchCategories, CATEGORIES);
 
   const { refreshControl } = usePullRefresh(() =>
@@ -267,7 +272,7 @@ export default function HomeScreen() {
         {/* Products */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Today's Fresh Picks</Text>
-          <Pressable onPress={() => router.push('/vegetables')}>
+          <Pressable onPress={() => router.push('/categories')}>
             <Text style={styles.seeAll}>View all</Text>
           </Pressable>
         </View>

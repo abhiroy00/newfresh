@@ -30,10 +30,20 @@ export default function PaymentScreen() {
   const [placing, setPlacing] = useState(false);
   const [addresses, setAddresses] = useState<any[]>([]);
   const [selectedAddress, setSelectedAddress] = useState<string>('');
-  const { subtotal, delivery_fee, total, totalItems, clearCart, fetchCart, items } = useCartStore();
+  // Set once the backend order exists. Creating the order empties the server
+  // cart, so a cancelled/failed online payment must be retried against this
+  // same order instead of creating a new one (which fails: "Cart is empty").
+  const [pendingOrder, setPendingOrder] = useState<{
+    id: string; subtotal: number; delivery_fee: number; total: number; count: number;
+  } | null>(null);
+  const cart = useCartStore();
+  const { totalItems, clearCart, fetchCart, items } = cart;
+  const subtotal = pendingOrder?.subtotal ?? cart.subtotal;
+  const delivery_fee = pendingOrder?.delivery_fee ?? cart.delivery_fee;
+  const total = pendingOrder?.total ?? cart.total;
   const { user } = useAuthStore();
   const { startPayment } = useRazorpay();
-  const count = totalItems();
+  const count = pendingOrder?.count ?? totalItems();
   const insets = useSafeAreaInsets();
   const btnScale = useSharedValue(1);
   const btnStyle = useAnimatedStyle(() => ({ transform: [{ scale: btnScale.value }] }));
@@ -61,11 +71,10 @@ export default function PaymentScreen() {
         }
         const addrs = addrResult.value.data.data || [];
         setAddresses(addrs);
-        setSelectedAddress((prev) => {
-          if (prev && addrs.some((a: any) => a.id === prev)) return prev;
-          const def = addrs.find((a: any) => a.is_default) || addrs[0];
-          return def ? def.id : '';
-        });
+        // "Change" opens /location, which confirms a choice by making it the
+        // default — so the default must win here, or the change never applies.
+        const def = addrs.find((a: any) => a.is_default) || addrs[0];
+        setSelectedAddress(def ? def.id : '');
       })();
       return () => { active = false; };
     }, [fetchCart])
@@ -80,31 +89,52 @@ export default function PaymentScreen() {
       ]);
       return;
     }
-    if (items.length === 0) {
+    if (pendingOrder && !ONLINE_PAYMENT_METHODS.includes(selected)) {
+      appAlert(
+        'Complete Payment',
+        'This order was already placed for online payment. Please pay online, or cancel it from My Orders and order again with Cash on Delivery.',
+      );
+      return;
+    }
+    if (!pendingOrder && items.length === 0) {
       appAlert('Empty Cart', 'Your cart is empty. Please add items before checking out.');
       return;
     }
 
     setPlacing(true);
     try {
-      // The cart was refreshed when this screen gained focus, so read the store
-      // directly rather than paying for another round trip here. Read from
-      // getState() — not the render-time closure — so a refresh that landed
-      // after this render is still seen. The server revalidates regardless.
-      const freshItems = useCartStore.getState().items;
+      let order: { id: string } | null = pendingOrder;
+      if (!order) {
+        // The cart was refreshed when this screen gained focus, so read the store
+        // directly rather than paying for another round trip here. Read from
+        // getState() — not the render-time closure — so a refresh that landed
+        // after this render is still seen. The server revalidates regardless.
+        const freshItems = useCartStore.getState().items;
 
-      if (freshItems.length === 0) {
-        appAlert('Empty Cart', 'Your cart is empty. Please add items before checking out.');
-        setPlacing(false);
-        return;
+        if (freshItems.length === 0) {
+          appAlert('Empty Cart', 'Your cart is empty. Please add items before checking out.');
+          setPlacing(false);
+          return;
+        }
+
+        // Create the order on the backend
+        const { data: orderRes } = await ordersApi.create({
+          address_id: selectedAddress,
+          payment_method: selected,
+        });
+        const created = orderRes.data;
+        order = created;
+        if (ONLINE_PAYMENT_METHODS.includes(selected)) {
+          setPendingOrder({
+            id: created.id,
+            subtotal: created.subtotal,
+            delivery_fee: created.delivery_fee,
+            total: created.total,
+            count: (created.items || []).reduce((n: number, i: any) => n + (i.quantity || 0), 0),
+          });
+        }
       }
-
-      // Create the order on the backend
-      const { data: orderRes } = await ordersApi.create({
-        address_id: selectedAddress,
-        payment_method: selected,
-      });
-      const order = orderRes.data;
+      if (!order) return;
 
       // If online payment (UPI/Card), go through Razorpay
       if (ONLINE_PAYMENT_METHODS.includes(selected)) {
@@ -115,10 +145,15 @@ export default function PaymentScreen() {
         });
 
         if (!result.success) {
-          // Payment failed or cancelled — order remains PENDING, user can retry
+          // Payment failed or cancelled — order remains PENDING; tapping Pay
+          // again retries against the same order (see pendingOrder).
           if (result.error && result.error !== PAYMENT_CANCELLED) {
-            appAlert('Payment Failed', result.error);
+            appAlert('Payment Failed', `${result.error}\n\nYour order is saved — tap Pay to try again.`);
+          } else {
+            appAlert('Payment not completed', 'Your order is saved. Tap Pay to try again, or find it in My Orders.');
           }
+          // The server emptied the cart when the order was created; sync the badge.
+          fetchCart();
           setPlacing(false);
           return;
         }
@@ -161,7 +196,17 @@ export default function PaymentScreen() {
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {/* Delivery Address */}
-        <Pressable style={styles.addressCard} onPress={() => router.push('/location')}>
+        <Pressable
+          style={styles.addressCard}
+          onPress={() => {
+            if (pendingOrder) {
+              // The address is snapshotted into the order when it's created.
+              appAlert('Address locked', 'This order is already placed with this address. Complete payment, or cancel it from My Orders to change the address.');
+              return;
+            }
+            router.push('/location');
+          }}
+        >
           <MapPin size={18} color={Colors.primary} />
           <View style={{ flex: 1 }}>
             <Text style={styles.addressLabel}>Deliver to: {currentAddr?.label || 'Select Address'}</Text>

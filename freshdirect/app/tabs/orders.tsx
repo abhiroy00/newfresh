@@ -18,8 +18,8 @@ const StatusIcon = ({ status }: { status: string }) => {
 
 const statusLabel = (s: string) => {
   const map: Record<string, string> = {
-    pending: 'Pending', confirmed: 'Confirmed', preparing: 'Preparing',
-    out_for_delivery: 'Out for Delivery', delivered: 'Delivered', cancelled: 'Cancelled',
+    pending: 'Pending', confirmed: 'Confirmed', packing: 'Packing', preparing: 'Preparing',
+    out_for_delivery: 'Out for Delivery', delivered: 'Delivered', cancelled: 'Cancelled', refunded: 'Refunded',
   };
   return map[s] || s;
 };

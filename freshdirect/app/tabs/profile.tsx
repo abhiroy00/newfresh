@@ -10,7 +10,8 @@ import {
 } from 'lucide-react-native';
 import { Colors, BorderRadius, Spacing, Shadows } from '@/constants/theme';
 import { useAuthStore } from '@/store/authStore';
-import { usersApi, ordersApi } from '@/lib/api';
+import { usersApi, ordersApi, authApi } from '@/lib/api';
+import { useCartStore } from '@/store/cartStore';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { usePullRefresh } from '@/hooks/usePullRefresh';
 import { formatPhone } from '@/lib/phone';
@@ -84,7 +85,13 @@ export default function ProfileScreen() {
   const { refreshControl } = usePullRefresh(loadProfile);
 
   const doLogout = async () => {
+    try {
+      // Revoke the tokens server-side; best-effort, local logout happens regardless.
+      await authApi.logout();
+    } catch {}
     await logout();
+    // Otherwise the previous user's cart stays in memory for the next login.
+    useCartStore.getState().reset();
     router.replace('/auth/login');
   };
 

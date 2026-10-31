@@ -9,11 +9,16 @@ import {
 } from 'lucide-react-native';
 import { Colors, BorderRadius, Spacing, Shadows } from '@/constants/theme';
 import { ordersApi } from '@/lib/api';
+import { appAlert } from '@/lib/appAlert';
+import { useAuthStore } from '@/store/authStore';
+import { useRazorpay, PAYMENT_CANCELLED } from '@/hooks/useRazorpay';
+
+const ONLINE_METHODS = ['upi', 'card', 'netbanking'];
 
 const statusLabel = (s: string) => {
   const map: Record<string, string> = {
-    pending: 'Pending', confirmed: 'Confirmed', preparing: 'Preparing',
-    out_for_delivery: 'Out for Delivery', delivered: 'Delivered', cancelled: 'Cancelled',
+    pending: 'Pending', confirmed: 'Confirmed', packing: 'Packing', preparing: 'Preparing',
+    out_for_delivery: 'Out for Delivery', delivered: 'Delivered', cancelled: 'Cancelled', refunded: 'Refunded',
   };
   return map[s] || s;
 };
@@ -40,24 +45,68 @@ export default function OrderDetailScreen() {
   const [order, setOrder] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
+  const { user } = useAuthStore();
+  const { startPayment } = useRazorpay();
+
+  const load = React.useCallback(async (isActive: () => boolean = () => true) => {
+    try {
+      const { data } = await ordersApi.detail(String(id));
+      if (isActive()) setOrder(data?.data ?? null);
+    } catch (e) {
+      console.warn('Failed to load order:', e);
+      if (isActive()) setError(true);
+    } finally {
+      if (isActive()) setLoading(false);
+    }
+  }, [id]);
 
   React.useEffect(() => {
     let cancelled = false;
-    (async () => {
-      try {
-        const { data } = await ordersApi.detail(String(id));
-        if (!cancelled) setOrder(data?.data ?? null);
-      } catch (e) {
-        console.warn('Failed to load order:', e);
-        if (!cancelled) setError(true);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
+    load(() => !cancelled);
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [load]);
+
+  // An online order whose payment was abandoned stays pending — let the
+  // customer finish paying it instead of being stuck.
+  const handlePayNow = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const result = await startPayment(order.id, { name: user?.name, email: user?.email, phone: user?.phone });
+      if (result.success) {
+        router.replace({ pathname: '/order-success', params: { orderId: order.id } });
+        return;
+      }
+      if (result.error && result.error !== PAYMENT_CANCELLED) appAlert('Payment Failed', result.error);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const doCancel = async () => {
+    setBusy(true);
+    try {
+      await ordersApi.cancel(order.id, 'Cancelled by customer');
+      await load();
+      appAlert('Order Cancelled', 'Your order has been cancelled.');
+    } catch (e: any) {
+      const detail = e.response?.data?.detail;
+      appAlert('Could not cancel', typeof detail === 'string' ? detail : 'Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleCancel = () => {
+    if (busy) return;
+    appAlert('Cancel Order', 'Are you sure you want to cancel this order?', [
+      { text: 'Keep Order', style: 'cancel' },
+      { text: 'Cancel Order', style: 'destructive', onPress: doCancel },
+    ]);
+  };
 
   const Header = (
     <SafeAreaView style={styles.header} edges={['top']}>
@@ -95,6 +144,12 @@ export default function OrderDetailScreen() {
   const color = statusColor(order.status);
   const items: any[] = order.items || [];
   const addr = order.address || order.delivery_address;
+  const canPay = order.status === 'pending'
+    && order.payment_status === 'pending'
+    && ONLINE_METHODS.includes(order.payment_method);
+  // Paid orders aren't self-cancellable: the backend doesn't refund yet, so
+  // those go through support instead.
+  const canCancel = ['pending', 'confirmed'].includes(order.status) && order.payment_status !== 'paid';
 
   return (
     <View style={styles.container}>
@@ -131,6 +186,19 @@ export default function OrderDetailScreen() {
             >
               <Truck size={14} color="#fff" />
               <Text style={styles.trackBtnText}>Track Order</Text>
+            </Pressable>
+          )}
+
+          {canPay && (
+            <Pressable style={[styles.trackBtn, busy && { opacity: 0.6 }]} onPress={handlePayNow} disabled={busy}>
+              <Text style={styles.trackBtnText}>{`Complete Payment ₹${order.total ?? 0}`}</Text>
+            </Pressable>
+          )}
+
+          {canCancel && (
+            <Pressable style={[styles.cancelBtn, busy && { opacity: 0.6 }]} onPress={handleCancel} disabled={busy}>
+              <XCircle size={14} color={Colors.error} />
+              <Text style={styles.cancelBtnText}>Cancel Order</Text>
             </Pressable>
           )}
         </View>
@@ -264,6 +332,18 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
   },
   trackBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  cancelBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: Colors.error,
+    paddingVertical: 10,
+    borderRadius: BorderRadius.full,
+    marginTop: Spacing.sm,
+  },
+  cancelBtnText: { color: Colors.error, fontSize: 13, fontWeight: '700' },
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: Spacing.sm },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: Colors.onSurfaceDeep, marginBottom: Spacing.sm },
   addrName: { fontSize: 14, fontWeight: '600', color: Colors.onSurface, marginBottom: 2 },

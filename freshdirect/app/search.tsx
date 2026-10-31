@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Pressable, TextInput, Dimensions,
 } from 'react-native';
@@ -6,7 +6,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Search, ChevronLeft } from 'lucide-react-native';
 import { Colors, BorderRadius, Spacing, Shadows } from '@/constants/theme';
-import { PRODUCTS } from '@/constants/data';
 import ProductCard from '@/components/ProductCard';
 import { productsApi } from '@/lib/api';
 
@@ -31,26 +30,32 @@ export default function SearchScreen() {
   const [results, setResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
 
+  // Search fires on every keystroke; only the latest request may set results,
+  // otherwise a slow earlier response can overwrite newer ones.
+  const latestQuery = useRef('');
+
   const handleSearch = async (query: string) => {
     setSearch(query);
+    latestQuery.current = query;
     if (!query.trim()) {
       setResults([]);
+      setSearching(false);
       return;
     }
 
     setSearching(true);
     try {
-      const response = await productsApi.list({ search: query, page: 1, per_page: 50 });
-      const prods = response?.data;
-      setResults(Array.isArray(prods) && prods.length ? prods.map(mapProduct) : []);
+      const response = await productsApi.list({ search: query.trim(), page: 1, per_page: 50 });
+      if (latestQuery.current !== query) return;
+      // Body is { success, data: [...] } — the array is response.data.data.
+      const prods = response?.data?.data;
+      setResults(Array.isArray(prods) ? prods.map(mapProduct) : []);
     } catch (e) {
       console.warn('Search error:', e);
-      const filtered = PRODUCTS.filter((p) =>
-        p.name.toLowerCase().includes(query.toLowerCase())
-      );
-      setResults(filtered);
+      // Don't fall back to demo products: their ids don't exist on the server.
+      if (latestQuery.current === query) setResults([]);
     } finally {
-      setSearching(false);
+      if (latestQuery.current === query) setSearching(false);
     }
   };
 

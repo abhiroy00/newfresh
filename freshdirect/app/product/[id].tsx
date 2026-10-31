@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, Pressable, Image, Dimensions,
+  View, Text, StyleSheet, ScrollView, Pressable, Image, Dimensions, Share,
 } from 'react-native';
 import { splitProductName } from '@/lib/productName';
 import MarkdownText from '@/components/MarkdownText';
@@ -240,7 +240,14 @@ export default function ProductDetailScreen() {
           <ChevronLeft size={24} color={Colors.onSurface} />
         </Pressable>
         <Text style={styles.headerTitle}>Product Details</Text>
-        <Pressable style={styles.headerBtn}>
+        <Pressable
+          style={styles.headerBtn}
+          onPress={() => {
+            Share.share({
+              message: `${nameEn} – ₹${product.price} / ${product.unit} on Gmart Fresh\nhttps://shop.gmartfresh.com/product/${product.id}`,
+            }).catch(() => {});
+          }}
+        >
           <Share2 size={20} color={Colors.onSurface} />
         </Pressable>
       </View>
