@@ -15,6 +15,10 @@ class CheckoutTests(unittest.IsolatedAsyncioTestCase):
         config = patch.multiple(settings, RAZORPAY_KEY_ID="rzp_test_fixture", RAZORPAY_KEY_SECRET="fixture-secret")
         config.start()
         self.addCleanup(config.stop)
+        # Paid orders queue an "order placed" push; keep tests off a real broker.
+        notify = patch.object(service, "queue_order_event")
+        self.queue_order_event = notify.start()
+        self.addCleanup(notify.stop)
         self.order = SimpleNamespace(
             id="internal", order_number="receipt", total=10,
             razorpay_order_id="order_test", razorpay_payment_id=None,

@@ -11,6 +11,7 @@ from app.core.database import get_db
 from app.core.security import create_access_token, pwd_context
 from app.api.v1.deps import get_current_admin
 from app.services.auth_service import generate_user_code
+from app.services.notification_service import notify_status_change
 from app.models.user import User, FamilyMember
 from app.models.product import Product, Carousel
 from app.models.order import Order, OrderStatus
@@ -209,12 +210,14 @@ async def admin_update_order_status(order_id: str, payload: OrderStatusUpdateReq
     order = result.scalar_one_or_none()
     if not order:
         raise HTTPException(404, "Order not found")
+    old_status = order.status
     order.status = payload.status
     if payload.estimated_delivery_at:
         order.estimated_delivery_at = payload.estimated_delivery_at
     if payload.status == OrderStatus.DELIVERED:
         order.delivered_at = datetime.now(timezone.utc)
     await db.flush()
+    notify_status_change(order, old_status)
     return {"success": True, "status": order.status.value if hasattr(order.status, 'value') else order.status}
 
 
@@ -580,8 +583,10 @@ async def cancel_order_admin(
     if order.status == OrderStatus.DELIVERED:
         raise HTTPException(status_code=400, detail="Cannot cancel delivered order")
 
+    old_status = order.status
     order.status = OrderStatus.CANCELLED
     await db.flush()
+    notify_status_change(order, old_status)
 
     # TODO: Trigger refund to payment method
 

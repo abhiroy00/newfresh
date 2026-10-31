@@ -76,4 +76,8 @@ async def api_payment_webhook(request: Request, db: AsyncSession = Depends(get_d
                     order.status = OrderStatus.CONFIRMED
                 order.razorpay_payment_id = rzp_payment_id
                 await db.flush()
+                # Webhook path for payments the app never verified (e.g. app
+                # closed mid-payment) — the customer still gets "order placed".
+                from app.services.notification_service import queue_order_event
+                queue_order_event("placed", order)
     return {"status": "ok"}

@@ -9,6 +9,8 @@ from app.models.user import User
 from app.schemas.order import OrderCreate, OrderStatusUpdate, OrderCancelRequest
 from app.services.order_service import create_order, list_orders, cancel_order
 from app.services.delivery_slots import available_slots
+from app.services.notification_service import queue_order_event, notify_status_change
+from app.models.order import PaymentMethod
 from app.models.order import Order, OrderStatus
 from datetime import datetime, timezone
 
@@ -26,6 +28,12 @@ async def api_create_order(payload: OrderCreate, current_user: User = Depends(ge
         .where(Order.id == order.id)
     )
     order_loaded = result.scalar_one()
+
+    # COD orders are placed right away; online orders notify once paid
+    # (payment_service.verify_payment / the webhook), so an abandoned payment
+    # never gets an "order placed" message.
+    if order_loaded.payment_method == PaymentMethod.COD:
+        queue_order_event("placed", order_loaded)
 
     address = None
     if order_loaded.delivery_address_snapshot:
@@ -142,6 +150,7 @@ async def api_get_order(order_id: str, current_user: User = Depends(get_current_
 @router.post("/{order_id}/cancel")
 async def api_cancel_order(order_id: str, payload: OrderCancelRequest, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     order = await cancel_order(order_id, current_user.id, payload.reason, db)
+    queue_order_event("cancelled", order)
     return {"success": True, "data": order}
 
 @router.patch("/{order_id}/status")
@@ -150,10 +159,12 @@ async def api_update_order_status(order_id: str, payload: OrderStatusUpdate, db:
     order = result.scalar_one_or_none()
     if not order:
         raise HTTPException(404, "Order not found")
+    old_status = order.status
     order.status = payload.status
     if payload.estimated_delivery_at:
         order.estimated_delivery_at = payload.estimated_delivery_at
     if payload.status == OrderStatus.DELIVERED:
         order.delivered_at = datetime.now(timezone.utc)
     await db.flush()
+    notify_status_change(order, old_status)
     return {"success": True, "data": order}

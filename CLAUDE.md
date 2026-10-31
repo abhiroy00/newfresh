@@ -4,6 +4,7 @@
 > 1. Read this file before making any change.
 > 2. After every code change, update the relevant sections here (Change log, Known issues, Pending tasks, Decisions) in the same commit.
 > 3. Don't break existing behaviour: check every consumer of an endpoint (admin, storefront, mobile) before changing its shape.
+> 4. **Never push, trigger CI/CD, publish OTA or release to the Play Store without the owner's explicit permission.** A push to `main` deploys production and updates every customer's app. Make and test changes locally; ask before pushing.
 
 Last full codebase review: 2026-10-27.
 
@@ -50,7 +51,7 @@ External: Razorpay (payments + webhook), Twilio Verify (SMS OTP), Cloudinary (im
 - `api/v1/endpoints/extended.py`: `/api/v1/admin/...` for extended product fields, bulk CSV price upload, schedule price, price history, stock thresholds, services CRUD, `AppSettings` (app/payment/tax/delivery config), delivery zones.
 - `services/`: business logic (auth, cart, order, payment, product, notification, wishlist).
 - `models/`: User (with `user_code` like `G-1234`, `is_admin`, `is_rider`, `password_hash`), Address, FamilyMember, Category, Product (+ JSON extended fields), ProductImage, Carousel, Service, Cart/CartItem, Order/OrderItem (enum status, address JSON snapshot, Razorpay ids, `rider_id`), FCMToken (actually stores Expo push tokens), SupportTicket/SupportMessage, WishlistItem, AppSettings, DeliveryZone. Note: `Service`, `AppSettings`, `DeliveryZone` are **not** exported from `models/__init__.py`. They're registered only because other modules import them (product.py defines Service; settings.py is imported by extended.py). Keep that in mind for Alembic autogenerate.
-- `worker.py` / `tasks.py`: Celery app (`Asia/Kolkata`), tasks `send_order_push` (defined, **never dispatched**) and `send_daily_no_order_reminder` (beat, 19:30 IST, Hinglish copy).
+- `worker.py` / `tasks.py`: Celery app (`Asia/Kolkata`), tasks `send_order_push` (order lifecycle push), `notify_order_arriving`, `send_arriving_soon_notifications` (beat, every 60 s) and `send_daily_no_order_reminder` (beat, 19:30 IST, Hinglish copy). Tasks run async code via `tasks._run`, which disposes the engine after each run (asyncpg pools can't cross event loops). `task_ignore_result=True`.
 
 ### Response conventions (don't break these)
 - Customer API (`/api/v1/*` from `router.py`): `{"success": true, "data": ..., "message"?: ...}`. Product list adds `total/page/per_page/pages`.
@@ -118,8 +119,8 @@ cd freshdirect && npm ci && npx expo start # type-check: npx tsc --noEmit
 ```
 
 ### Migrations
-- Alembic head is currently **`add_family_member_gender`**. The chain is linear except for one merge (`5d7942d7e6d2`). Revision ids are a mix of hex and descriptive names. Always set `down_revision` to the current head.
-- Chain: `273d831cd4c1` → `add_phase2_3_fields` → {`add_carousels_table` → `drop_product_rating_review` → `a1b2c3d4e5f6` (password_hash) → `b2c3d4e5f6a7` (riders) → `c3d4e5f6a7b8` (service category_id)} + {`add_storage_preparation`} → merge `5d7942d7e6d2` → `d4e5f6a7b8c9` (support) → `e5f6a7b8c9d0` (wishlist) → `add_user_code` → `add_family_members` → `add_family_member_gender`.
+- Alembic head is currently **`add_order_arriving_notified`**. The chain is linear except for one merge (`5d7942d7e6d2`). Revision ids are a mix of hex and descriptive names. Always set `down_revision` to the current head.
+- Chain: `273d831cd4c1` → `add_phase2_3_fields` → {`add_carousels_table` → `drop_product_rating_review` → `a1b2c3d4e5f6` (password_hash) → `b2c3d4e5f6a7` (riders) → `c3d4e5f6a7b8` (service category_id)} + {`add_storage_preparation`} → merge `5d7942d7e6d2` → `d4e5f6a7b8c9` (support) → `e5f6a7b8c9d0` (wishlist) → `add_user_code` → `add_family_members` → `add_family_member_gender` → `add_order_arriving_notified`.
 - Prod runs `alembic upgrade head` automatically on deploy, so migrations must be safe on existing data (backfill before adding NOT NULL).
 - Postgres enums: SQLAlchemy binds enum **names** (uppercase, e.g. `PENDING`) for `Enum(PyEnum)` columns. See commit `ba075f5`; match that when writing enum migrations.
 - `create_carousel_table.py` is a legacy `create_all` helper. Don't use it; use Alembic.
@@ -133,7 +134,7 @@ Ordered by severity. Verify each one before fixing.
 1. **Security: admin login fallback passwords.** `api/admin.py` `admin_login` accepts the password `admin123`, or the user's phone number, for any admin/rider with no `password_hash`. This should be removed once every admin has a real password.
 2. **Admin product editor drops extended fields.** `AddEditProduct.tsx` sends `origin`, `health_benefits`, `storage_tips`, `preparation_tips`, `tags` to `POST/PUT /products` (api/admin.py), which only whitelists basic keys. Those fields are silently ignored. (`PATCH /admin/products/{id}` in products.py uses the `ProductUpdate` schema, which *does* support them.)
 3. **`ExtendedProducts.tsx` page is broken.** It does `GET /admin/products/{id}`, which doesn't exist (405), and sends the PATCH `/admin/products/{id}/extended` payload as query params while the backend expects a JSON body. Route `products/:id/extended` isn't linked from the UI.
-4. **Order status push never fires.** The Celery task `send_order_push` exists but nothing calls `.delay()` on admin/rider status changes.
+4. ~~Order status push never fires~~ (fixed 2026-11-01, see change log).
 5. **Admin cancel (`POST /admin/orders/{id}/cancel`)** doesn't restock items, set `cancelled_at`/`cancellation_reason`, or refund paid orders (there's a TODO). The customer cancel restocks but doesn't refund either.
 6. **Admin settings don't affect checkout.** The `AppSettings` delivery config (min order, free-delivery threshold, fee), GST config, payment methods, and DB-stored Razorpay keys are saved but never read by cart/order/payment code, which use env vars. `min_order_value` isn't enforced, and GST isn't applied.
 7. **Scheduled price changes are never applied.** `scheduled_price`/`scheduled_price_date` are stored, but there's no Celery beat task to apply them.
@@ -165,7 +166,7 @@ Ordered by severity. Verify each one before fixing.
 
 ## 7. Pending tasks / roadmap
 
-- [ ] Fix known issues 1–4 (highest value: security, then broken admin editing, then pushes).
+- [ ] Fix known issues 1–3 (highest value: security, then broken admin editing).
 - [ ] Wire `AppSettings` into cart/order totals, or remove the unused settings UI.
 - [ ] Refunds via the Razorpay API on cancel.
 - [ ] Celery beat task to apply scheduled prices.
@@ -178,6 +179,14 @@ Ordered by severity. Verify each one before fixing.
 ## 8. Change log (newest first)
 
 Add one line per change: date, short description, files touched.
+
+- 2026-11-01 (**local only, not pushed**): **Order notifications** (Expo push, Android channel `orders`, HIGH importance):
+  - **Placed:** COD on order creation; online only after payment succeeds (`verify_payment` or webhook), so abandoned payments get nothing.
+  - **Arriving soon + rider name/phone:** beat task every minute for orders ≤15 min from `estimated_delivery_at` (stale after 2 h, rider must be assigned). Also fires immediately on `out_for_delivery`. Sent exactly once via an atomic claim on new `orders.arriving_notified_at` (migration `add_order_arriving_notified`).
+  - **Delivered** / **cancelled** on status change (admin, rider, customer cancel).
+  - Queueing is fail-safe (`notification_service._enqueue`, `send_task(retry=False)`): a broker outage never breaks an order. Text is in `order_message()`.
+  - Mobile: tapping an order push opens `/order/[id]` (`hooks/usePushNotifications.ts`).
+  - Tests: `tests/test_order_notifications.py`. WhatsApp: not built. Automated WhatsApp needs the WhatsApp Business API (e.g. Twilio, which we already use); a no-API option is a manual wa.me click-to-chat button.
 
 - 2026-11-01: **Play Store releases from CI.** `eas.json` submit now targets track `production` with `releaseStatus: completed`. It used to be `internal`, which only reached testers. The first two runs showed the key is *not* on expo.dev ("Google Service Account Keys cannot be set up in --non-interactive mode"). CI now writes it from the `PLAY_SERVICE_ACCOUNT_JSON` secret. Note: Abhishek's unmerged `ci/playstore-release` branch has a parallel Gradle-based `playstore.yml`. Pick one pipeline. New `.github/workflows/android-release.yml` (tag-triggered, because nobody can workflow_dispatch from here without gh auth). Tags `android-release-2026-11-01` and `-2` failed (submit key). **`android-release-2026-11-01-3` succeeded**: production AAB built on EAS and auto-submitted to the Play production track (pending Google review). An unused versionCode-5 build from `-2` also exists on EAS.
 

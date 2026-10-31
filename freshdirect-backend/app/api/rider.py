@@ -9,6 +9,7 @@ from app.core.database import get_db
 from app.api.v1.deps import get_current_rider
 from app.models.user import User
 from app.models.order import Order, OrderStatus
+from app.services.notification_service import notify_status_change
 
 router = APIRouter(prefix="/api/v1/rider")
 
@@ -142,10 +143,12 @@ async def rider_update_status(
     if not order:
         raise HTTPException(404, "Order not found or not assigned to you")
 
+    old_status = order.status
     order.status = status_enum
     if status_enum == OrderStatus.DELIVERED:
         from datetime import datetime, timezone
         order.delivered_at = datetime.now(timezone.utc)
 
     await db.flush()
+    notify_status_change(order, old_status)
     return {"success": True, "status": order.status.value}

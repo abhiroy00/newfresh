@@ -9,6 +9,7 @@ import razorpay
 from app.models.order import Order, OrderStatus, PaymentStatus
 from app.core.config import settings
 from app.core.security import verify_razorpay_signature
+from app.services.notification_service import queue_order_event
 
 logger = logging.getLogger(__name__)
 
@@ -163,4 +164,6 @@ async def verify_payment(
     if order.status == OrderStatus.PENDING:
         order.status = OrderStatus.CONFIRMED
     await db.flush()
+    # Only on the first successful verification (repeats return earlier above).
+    queue_order_event("placed", order)
     return order
