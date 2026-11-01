@@ -119,8 +119,8 @@ cd freshdirect && npm ci && npx expo start # type-check: npx tsc --noEmit
 ```
 
 ### Migrations
-- Alembic head is currently **`add_order_delivery_mode`**. The chain is linear except for one merge (`5d7942d7e6d2`). Revision ids are a mix of hex and descriptive names. Always set `down_revision` to the current head.
-- Chain: `273d831cd4c1` → `add_phase2_3_fields` → {`add_carousels_table` → `drop_product_rating_review` → `a1b2c3d4e5f6` (password_hash) → `b2c3d4e5f6a7` (riders) → `c3d4e5f6a7b8` (service category_id)} + {`add_storage_preparation`} → merge `5d7942d7e6d2` → `d4e5f6a7b8c9` (support) → `e5f6a7b8c9d0` (wishlist) → `add_user_code` → `add_family_members` → `add_family_member_gender` → `add_order_arriving_notified` → `add_order_tracking_fields` → `add_order_delivery_mode`.
+- Alembic head is currently **`add_family_reminder_fields`**. The chain is linear except for one merge (`5d7942d7e6d2`). Revision ids are a mix of hex and descriptive names. Always set `down_revision` to the current head.
+- Chain: `273d831cd4c1` → `add_phase2_3_fields` → {`add_carousels_table` → `drop_product_rating_review` → `a1b2c3d4e5f6` (password_hash) → `b2c3d4e5f6a7` (riders) → `c3d4e5f6a7b8` (service category_id)} + {`add_storage_preparation`} → merge `5d7942d7e6d2` → `d4e5f6a7b8c9` (support) → `e5f6a7b8c9d0` (wishlist) → `add_user_code` → `add_family_members` → `add_family_member_gender` → `add_order_arriving_notified` → `add_order_tracking_fields` → `add_order_delivery_mode` → `add_family_reminder_fields`.
 - Prod runs `alembic upgrade head` automatically on deploy, so migrations must be safe on existing data (backfill before adding NOT NULL).
 - Postgres enums: SQLAlchemy binds enum **names** (uppercase, e.g. `PENDING`) for `Enum(PyEnum)` columns. See commit `ba075f5`; match that when writing enum migrations.
 - `create_carousel_table.py` is a legacy `create_all` helper. Don't use it; use Alembic.
@@ -180,6 +180,13 @@ Ordered by severity. Verify each one before fixing.
 ## 8. Change log (newest first)
 
 Add one line per change: date, short description, files touched.
+
+- 2026-11-02 (**local only, not pushed**): **Family details screens + smart reminder popup.**
+  - **Fix:** family rows in Edit Profile weren't tappable; the whole card now opens the details page.
+  - **App:** new `app/family/index.tsx` (list, empty state, also reachable from Profile → Family Details), `app/family/[id].tsx` (details, Edit Details, Add Another, Remove), `app/family/add.tsx`, shared `components/FamilyMemberForm.tsx`. `app/profile-edit.tsx` now links to these and refetches on focus; its inline form moved to `family/add`. Shows only fields that exist: name, age, gender, weight. Relationship / DOB / contact / address aren't in the model and weren't added.
+  - **Reminder:** `components/FamilyReminderPopup.tsx`, mounted **only on the Home tab**, so it can't appear over cart, checkout or payment. One attempt per app session, after 4 s on Home; the server's impression claim has the final say.
+  - **Backend:** `services/family_reminder.py` + 4 `users` columns (migration `add_family_reminder_fields`), no new table. Never eligible once a member exists; otherwise at most once per `FAMILY_REMINDER_MIN_INTERVAL_HOURS` (24), and not for `FAMILY_REMINDER_COOLDOWN_DAYS` (3) after dismissing or removing the last member. `FAMILY_REMINDER_ENABLED` turns it off. New APIs: `GET /users/family-members/{id}`, `GET /users/family-reminder`, `POST /users/family-reminder/impression` (atomic; returns `show`), `POST /users/family-reminder/dismiss`.
+  - Verified: `tests/test_family_reminder.py`; local e2e with a controllable clock 26/26 (including another user's data → 404). Not run on a device.
 
 - 2026-11-01 (**local only, not pushed**): **Conditional delivery: express by day, scheduled at night** (replaces "always tomorrow + slots"). Rule and API: see Checkout flow §4.
   - Backend: `services/delivery_slots.py` (rewritten), `core/config.py` (DELIVERY_* settings), `models/order.py` + migration `add_order_delivery_mode`, `services/order_service.py` (`resolve_delivery`), `api/v1/endpoints/orders.py` (endpoint takes `address_id`; responses carry the mode fields), `api/admin.py`, `api/rider.py`, `services/notification_service.py` ("placed" push says "Estimated delivery in 35–45 minutes" or "Scheduled delivery: …").

@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import {
   User, MapPin, Package, Shield,
-  HelpCircle, ChevronRight, LogOut, Star, Edit3, FileText, Lock,
+  HelpCircle, ChevronRight, LogOut, Star, Edit3, FileText, Lock, Users,
 } from 'lucide-react-native';
 import { Colors, BorderRadius, Spacing, Shadows } from '@/constants/theme';
 import { useAuthStore } from '@/store/authStore';
@@ -25,6 +25,7 @@ const MENU_ITEMS = [
     group: 'Account',
     items: [
       { icon: User, label: 'Edit Profile', route: '/profile-edit' },
+      { icon: Users, label: 'Family Details', route: '/family' },
       { icon: MapPin, label: 'Delivery Addresses', route: '/location' },
       { icon: Package, label: 'My Orders', route: '/tabs/orders' },
     ],

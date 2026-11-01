@@ -4,22 +4,14 @@ import {
   KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { showMessage } from 'react-native-flash-message';
-import { ChevronLeft, User, Mail, Phone, Check, Users, Plus, Trash2, X } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, User, Mail, Phone, Check, Users, Plus, Trash2 } from 'lucide-react-native';
 import { Colors, BorderRadius, Spacing, Shadows } from '@/constants/theme';
 import { useAuthStore } from '@/store/authStore';
-import { usersApi, familyMembersApi, type Gender } from '@/lib/api';
+import { usersApi, familyMembersApi } from '@/lib/api';
+import { genderLabel, type FamilyMember } from '@/components/FamilyMemberForm';
 import { formatPhone } from '@/lib/phone';
-
-type FamilyMember = { id: string; name?: string | null; age: number; weight_kg: number; gender?: Gender | null };
-
-const GENDER_OPTIONS: { value: Gender; label: string }[] = [
-  { value: 'male', label: 'Male' },
-  { value: 'female', label: 'Female' },
-  { value: 'other', label: 'Other' },
-];
-const genderLabel = (g?: string | null) => GENDER_OPTIONS.find((o) => o.value === g)?.label;
 
 export default function ProfileEditScreen() {
   const router = useRouter();
@@ -33,12 +25,6 @@ export default function ProfileEditScreen() {
   const [saving, setSaving] = React.useState(false);
 
   const [familyMembers, setFamilyMembers] = React.useState<FamilyMember[]>([]);
-  const [showAddMember, setShowAddMember] = React.useState(false);
-  const [memberName, setMemberName] = React.useState('');
-  const [memberAge, setMemberAge] = React.useState('');
-  const [memberWeight, setMemberWeight] = React.useState('');
-  const [memberGender, setMemberGender] = React.useState<Gender | null>(null);
-  const [addingMember, setAddingMember] = React.useState(false);
   const [removingMemberId, setRemovingMemberId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -66,43 +52,14 @@ export default function ProfileEditScreen() {
     };
   }, []);
 
-  const memberAgeNum = Number(memberAge);
-  const memberWeightNum = Number(memberWeight);
-  const memberFormValid =
-    memberAge.trim().length > 0 && memberAgeNum >= 0 && memberAgeNum <= 120 &&
-    memberWeight.trim().length > 0 && memberWeightNum > 0 && memberWeightNum <= 300 &&
-    memberGender !== null;
-
-  const resetAddMemberForm = () => {
-    setShowAddMember(false);
-    setMemberName('');
-    setMemberAge('');
-    setMemberWeight('');
-    setMemberGender(null);
-  };
-
-  const handleAddMember = async () => {
-    if (!memberFormValid || addingMember) return;
-    setAddingMember(true);
-    try {
-      const { data } = await familyMembersApi.create({
-        name: memberName.trim() || undefined,
-        age: memberAgeNum,
-        weight_kg: memberWeightNum,
-        gender: memberGender ?? undefined,
-      });
-      setFamilyMembers((prev) => [...prev, data.data]);
-      resetAddMemberForm();
-    } catch (e: any) {
-      showMessage({
-        message: 'Could not add family member',
-        description: e.response?.data?.detail || 'Please try again',
-        type: 'danger',
-      });
-    } finally {
-      setAddingMember(false);
-    }
-  };
+  // Refetch on focus so changes made on the family screens show immediately.
+  useFocusEffect(
+    React.useCallback(() => {
+      familyMembersApi.list()
+        .then(({ data }) => setFamilyMembers(data.data || []))
+        .catch((e) => console.warn('Failed to load family members:', e));
+    }, [])
+  );
 
   const handleRemoveMember = async (id: string) => {
     setRemovingMemberId(id);
@@ -225,7 +182,11 @@ export default function ProfileEditScreen() {
         </View>
 
         {familyMembers.map((m) => (
-          <View key={m.id} style={styles.memberRow}>
+          <Pressable
+            key={m.id}
+            style={styles.memberRow}
+            onPress={() => router.push({ pathname: '/family/[id]', params: { id: m.id } })}
+          >
             <View style={styles.memberAvatar}>
               <Text style={styles.memberAvatarText}>{(m.name || 'F').charAt(0).toUpperCase()}</Text>
             </View>
@@ -246,92 +207,14 @@ export default function ProfileEditScreen() {
                 <Trash2 size={16} color={Colors.error} />
               )}
             </Pressable>
-          </View>
+            <ChevronRight size={18} color={Colors.outline} />
+          </Pressable>
         ))}
 
-        {showAddMember ? (
-          <View style={styles.addMemberCard}>
-            <View style={styles.addMemberRow}>
-              <TextInput
-                style={[styles.input, styles.addMemberNameInput]}
-                placeholder="Name (optional)"
-                placeholderTextColor={Colors.outlineVariant}
-                value={memberName}
-                onChangeText={setMemberName}
-                autoCapitalize="words"
-              />
-              <Pressable style={styles.memberDeleteBtn} onPress={resetAddMemberForm}>
-                <X size={18} color={Colors.onSurfaceVariant} />
-              </Pressable>
-            </View>
-            <View style={styles.addMemberRow}>
-              {/* Labels + unit suffixes stay visible after typing — placeholders alone vanish. */}
-              <View style={{ flex: 1 }}>
-                <Text style={styles.fieldLabel}>Age</Text>
-                <View style={styles.unitInputWrap}>
-                  <TextInput
-                    style={[styles.input, styles.unitInput]}
-                    placeholder="e.g. 32"
-                    placeholderTextColor={Colors.outlineVariant}
-                    value={memberAge}
-                    onChangeText={(v) => setMemberAge(v.replace(/[^0-9]/g, ''))}
-                    keyboardType="number-pad"
-                    maxLength={3}
-                  />
-                  <Text style={styles.unitSuffix}>yrs</Text>
-                </View>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.fieldLabel}>Weight</Text>
-                <View style={styles.unitInputWrap}>
-                  <TextInput
-                    style={[styles.input, styles.unitInput]}
-                    placeholder="e.g. 65"
-                    placeholderTextColor={Colors.outlineVariant}
-                    value={memberWeight}
-                    onChangeText={(v) => setMemberWeight(v.replace(/[^0-9.]/g, ''))}
-                    keyboardType="decimal-pad"
-                    maxLength={5}
-                  />
-                  <Text style={styles.unitSuffix}>kg</Text>
-                </View>
-              </View>
-            </View>
-            <View>
-              <Text style={styles.fieldLabel}>Gender</Text>
-              <View style={styles.genderRow}>
-                {GENDER_OPTIONS.map((o) => {
-                  const active = memberGender === o.value;
-                  return (
-                    <Pressable
-                      key={o.value}
-                      style={[styles.genderChip, active && styles.genderChipActive]}
-                      onPress={() => setMemberGender(o.value)}
-                    >
-                      <Text style={[styles.genderChipText, active && styles.genderChipTextActive]}>{o.label}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-            <Pressable
-              style={[styles.addMemberSaveBtn, !memberFormValid && { opacity: 0.5 }]}
-              onPress={handleAddMember}
-              disabled={!memberFormValid || addingMember}
-            >
-              {addingMember ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <Text style={styles.addMemberSaveBtnText}>Add Member</Text>
-              )}
-            </Pressable>
-          </View>
-        ) : (
-          <Pressable style={styles.addMemberBtn} onPress={() => setShowAddMember(true)}>
-            <Plus size={16} color={Colors.primary} />
-            <Text style={styles.addMemberBtnText}>Add Family Member</Text>
-          </Pressable>
-        )}
+        <Pressable style={styles.addMemberBtn} onPress={() => router.push('/family/add')}>
+          <Plus size={16} color={Colors.primary} />
+          <Text style={styles.addMemberBtnText}>Add Family Member</Text>
+        </Pressable>
 
         <View style={{ height: 24 }} />
         <Pressable
@@ -431,47 +314,11 @@ const styles = StyleSheet.create({
   memberName: { fontSize: 14, fontWeight: '600', color: Colors.onSurfaceDeep },
   memberDetail: { fontSize: 12, color: Colors.onSurfaceVariant, marginTop: 1 },
   memberDeleteBtn: { padding: 6 },
-  addMemberCard: {
-    backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.xl,
-    borderWidth: 1.5, borderColor: Colors.outlineVariant,
-    padding: Spacing.md, gap: Spacing.sm, marginBottom: Spacing.sm,
-  },
-  addMemberRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  addMemberNameInput: {
-    flex: 1, backgroundColor: Colors.surfaceContainerLow, borderRadius: BorderRadius.lg,
-    paddingHorizontal: Spacing.md, paddingVertical: 10,
-  },
-  addMemberSmallInput: {
-    flex: 1, backgroundColor: Colors.surfaceContainerLow, borderRadius: BorderRadius.lg,
-    paddingHorizontal: Spacing.md, paddingVertical: 10,
-  },
   familyCountBadge: {
     backgroundColor: Colors.primaryContainer, borderRadius: BorderRadius.full,
     paddingHorizontal: 10, paddingVertical: 3,
   },
   familyCountText: { fontSize: 12, fontWeight: '700', color: Colors.onPrimaryContainer },
-  fieldLabel: { fontSize: 12, fontWeight: '700', color: Colors.onSurfaceVariant, marginBottom: 4 },
-  unitInputWrap: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: Colors.surfaceContainerLow, borderRadius: BorderRadius.lg,
-    paddingHorizontal: Spacing.md,
-  },
-  unitInput: { paddingVertical: 10 },
-  unitSuffix: { fontSize: 14, fontWeight: '700', color: Colors.onSurfaceVariant, marginLeft: 4 },
-  genderRow: { flexDirection: 'row', gap: Spacing.sm },
-  genderChip: {
-    flex: 1, alignItems: 'center', paddingVertical: 9,
-    borderRadius: BorderRadius.full, borderWidth: 1.5, borderColor: Colors.outlineVariant,
-    backgroundColor: Colors.surfaceContainerLow,
-  },
-  genderChipActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryContainer },
-  genderChipText: { fontSize: 13, fontWeight: '600', color: Colors.onSurfaceVariant },
-  genderChipTextActive: { color: Colors.onPrimaryContainer, fontWeight: '700' },
-  addMemberSaveBtn: {
-    backgroundColor: Colors.primary, borderRadius: BorderRadius.lg,
-    height: 42, alignItems: 'center', justifyContent: 'center',
-  },
-  addMemberSaveBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
   addMemberBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     borderWidth: 1.5, borderColor: Colors.primary, borderStyle: 'dashed',

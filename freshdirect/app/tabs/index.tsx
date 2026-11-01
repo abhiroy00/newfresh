@@ -17,6 +17,7 @@ const EMPTY_PRODUCTS: any[] = [];
 import ProductCard from '@/components/ProductCard';
 import ProductSkeleton from '@/components/ProductSkeleton';
 import { useAuthStore } from '@/store/authStore';
+import FamilyReminderPopup from '@/components/FamilyReminderPopup';
 import { productsApi, usersApi, api } from '@/lib/api';
 import { useTabBarHeight } from '@/hooks/useTabBarHeight';
 import { useAsyncData } from '@/hooks/useAsyncData';
@@ -297,6 +298,7 @@ export default function HomeScreen() {
 
         <View style={styles.spacer} />
       </ScrollView>
+      <FamilyReminderPopup />
     </View>
   );
 }

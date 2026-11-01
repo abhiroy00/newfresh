@@ -28,6 +28,11 @@ class User(Base):
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     is_rider: Mapped[bool] = mapped_column(Boolean, default=False)
     fcm_token: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    # "Add your family details" reminder state (services/family_reminder.py).
+    family_reminder_last_shown_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    family_reminder_last_dismissed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    family_reminder_impressions: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+    family_members_cleared_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

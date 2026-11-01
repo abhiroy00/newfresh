@@ -91,6 +91,11 @@ class Settings(BaseSettings):
     DEFAULT_DELIVERY_MINUTES: int = 45
     DELIVERY_ESTIMATE_SPREAD_MINUTES: int = 10  # shown as "35–45 minutes"
 
+    # "Add your family details" reminder (services/family_reminder.py)
+    FAMILY_REMINDER_ENABLED: bool = True
+    FAMILY_REMINDER_MIN_INTERVAL_HOURS: int = 24  # at most one per day
+    FAMILY_REMINDER_COOLDOWN_DAYS: int = 3  # after "Maybe Later" or removing the last member
+
     @model_validator(mode="after")
     def _parse_cloudinary_url(self) -> "Settings":
         """Parse CLOUDINARY_URL into individual components if the separate vars aren't set."""

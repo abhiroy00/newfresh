@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -10,6 +12,7 @@ from app.schemas.user import (
     FamilyMemberCreate, FamilyMemberUpdate, FamilyMemberOut,
 )
 from app.schemas.auth import SetPasswordRequest
+from app.services.family_reminder import claim_impression, family_member_count, serialize_status
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -82,6 +85,14 @@ async def list_family_members(current_user: User = Depends(get_current_user), db
     )
     return {"success": True, "data": [FamilyMemberOut.model_validate(m) for m in result.scalars().all()]}
 
+@router.get("/family-members/{member_id}")
+async def get_family_member(member_id: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    res = await db.execute(select(FamilyMember).where(FamilyMember.id == member_id, FamilyMember.user_id == current_user.id))
+    member = res.scalar_one_or_none()
+    if not member:
+        raise HTTPException(404, "Family member not found")
+    return {"success": True, "data": FamilyMemberOut.model_validate(member)}
+
 @router.post("/family-members", status_code=201)
 async def create_family_member(payload: FamilyMemberCreate, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     member = FamilyMember(**payload.model_dump(), user_id=current_user.id)
@@ -107,4 +118,25 @@ async def delete_family_member(member_id: str, current_user: User = Depends(get_
     if not member:
         raise HTTPException(404, "Family member not found")
     await db.delete(member)
+    await db.flush()
+    # Removing the last member makes the reminder eligible again, after a cooldown.
+    if await family_member_count(current_user.id, db) == 0:
+        current_user.family_members_cleared_at = datetime.now(timezone.utc)
+        await db.flush()
     return {"success": True, "message": "Deleted"}
+
+@router.get("/family-reminder")
+async def get_family_reminder(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    count = await family_member_count(current_user.id, db)
+    return {"success": True, "data": serialize_status(current_user, count)}
+
+@router.post("/family-reminder/impression")
+async def record_family_reminder_impression(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Clients show the popup only if this returns show=true."""
+    return {"success": True, "data": {"show": await claim_impression(current_user, db)}}
+
+@router.post("/family-reminder/dismiss")
+async def dismiss_family_reminder(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    current_user.family_reminder_last_dismissed_at = datetime.now(timezone.utc)
+    await db.flush()
+    return {"success": True, "message": "Dismissed"}

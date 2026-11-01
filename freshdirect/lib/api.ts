@@ -118,11 +118,19 @@ export const usersApi = {
 export type Gender = 'male' | 'female' | 'other';
 export const familyMembersApi = {
   list: () => api.get('/users/family-members'),
+  get: (id: string) => api.get(`/users/family-members/${id}`),
   create: (data: { name?: string; age: number; weight_kg: number; gender?: Gender }) =>
     api.post('/users/family-members', data),
-  update: (id: string, data: { name?: string; age?: number; weight_kg?: number; gender?: Gender }) =>
+  update: (id: string, data: { name?: string | null; age?: number; weight_kg?: number; gender?: Gender }) =>
     api.patch(`/users/family-members/${id}`, data),
   remove: (id: string) => api.delete(`/users/family-members/${id}`),
+};
+
+// "Add your family details" reminder; the backend owns the frequency rules.
+export const familyReminderApi = {
+  status: () => api.get('/users/family-reminder'),
+  recordImpression: () => api.post('/users/family-reminder/impression'),
+  dismiss: () => api.post('/users/family-reminder/dismiss'),
 };
 
 // Products
