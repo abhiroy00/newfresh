@@ -177,9 +177,16 @@ export default function Orders() {
                     {new Date(o.created_at).toLocaleDateString('en-IN')}
                   </td>
                   <td className="px-4 py-3 text-xs font-semibold text-gray-700 whitespace-nowrap">
-                    {o.estimated_delivery_at
-                      ? new Date(o.estimated_delivery_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: 'numeric', minute: '2-digit' })
-                      : '—'}
+                    {o.delivery_type && (
+                      <span className={`inline-block mb-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${o.delivery_type === 'normal' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
+                        {o.delivery_type === 'normal' ? 'Express' : 'Scheduled'}
+                      </span>
+                    )}
+                    <div>
+                      {o.estimated_delivery_at
+                        ? new Date(o.estimated_delivery_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: 'numeric', minute: '2-digit' })
+                        : '—'}
+                    </div>
                     {o.rating ? <div className="text-amber-500 font-bold mt-0.5">{'★'.repeat(o.rating)}<span className="text-gray-300">{'★'.repeat(5 - o.rating)}</span></div> : null}
                   </td>
                   <td className="px-4 py-3">

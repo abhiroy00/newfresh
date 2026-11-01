@@ -21,9 +21,9 @@ class OrderCreate(BaseModel):
     address_id: str
     payment_method: PaymentMethod = PaymentMethod.UPI
     notes: Optional[str] = None
-    # Scheduled delivery: "HH:00" between 09:00 and 20:00, plus the date the
-    # client showed (YYYY-MM-DD) so a cutoff passing mid-checkout is caught.
-    # Both optional so older app/web builds keep working (first slot is used).
+    # Only for scheduled delivery (orders after 8 PM / before 9 AM IST): the
+    # chosen "HH:00" slot and the date checkout showed (YYYY-MM-DD). Ignored for
+    # express orders. The server decides which mode applies.
     delivery_slot: Optional[str] = None
     delivery_date: Optional[str] = None
 

@@ -49,6 +49,7 @@ async def rider_orders(
             "notes": o.notes,  # delivery instructions from the customer
             # Riders never see the OTP itself — only whether one is needed.
             "otp_required": bool(o.delivery_otp),
+            "delivery_type": o.delivery_type,  # normal = express, deliver ASAP
             "created_at": o.created_at.isoformat() if o.created_at else None,
             "estimated_delivery_at": o.estimated_delivery_at.isoformat() if o.estimated_delivery_at else None,
             "customer": {

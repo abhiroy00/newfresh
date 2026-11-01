@@ -1,8 +1,8 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from enum import Enum as PyEnum
 from typing import TYPE_CHECKING
-from sqlalchemy import String, ForeignKey, DateTime, Integer, Float, Text, Enum, JSON
+from sqlalchemy import String, ForeignKey, DateTime, Date, Integer, Float, Text, Enum, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
@@ -74,6 +74,13 @@ class Order(Base):
     rating: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 1–5 stars
     rating_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
     rated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Delivery mode, decided on the server at order time (services/delivery_slots.py).
+    delivery_type: Mapped[str | None] = mapped_column(String(20), nullable=True)  # normal | scheduled
+    estimated_delivery_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)  # normal only
+    scheduled_delivery_date: Mapped[date | None] = mapped_column(Date, nullable=True)  # scheduled only
+    scheduled_delivery_slot: Mapped[str | None] = mapped_column(String(5), nullable=True)  # "HH:00"
+    order_placed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

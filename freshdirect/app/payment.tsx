@@ -8,7 +8,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import {
   ChevronLeft, CreditCard, Smartphone, Banknote,
-  Plus, Check, MapPin, Clock,
+  Plus, Check, MapPin, Clock, Zap,
 } from 'lucide-react-native';
 import { Colors, BorderRadius, Spacing, Shadows } from '@/constants/theme';
 import { useCartStore } from '@/store/cartStore';
@@ -40,9 +40,14 @@ export default function PaymentScreen() {
   const [pendingOrder, setPendingOrder] = useState<{
     id: string; subtotal: number; delivery_fee: number; total: number; count: number;
   } | null>(null);
-  // Delivery schedule comes from the backend, which owns the 8 PM cutoff rule.
+  // Delivery mode comes from the backend (services/delivery_slots.py), which
+  // owns the rule: 9 AM–8 PM IST → express (no slot); otherwise scheduled with
+  // a mandatory slot. The same rule is re-checked when the order is created.
   const [slotInfo, setSlotInfo] = useState<{
-    date: string; date_label: string; slots: { value: string; label: string }[];
+    mode: 'normal' | 'scheduled';
+    estimate_label?: string;
+    date: string | null; date_label: string | null;
+    slots: { value: string; label: string; available?: boolean }[];
   } | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<string>('');
   const [instructions, setInstructions] = useState<string[]>([]);
@@ -67,23 +72,32 @@ export default function PaymentScreen() {
     preloadRazorpay();
   }, []);
 
-  const loadSlots = useCallback(async () => {
+  const loadSlots = useCallback(async (addressId?: string) => {
     try {
-      const { data } = await ordersApi.deliverySlots();
+      const { data } = await ordersApi.deliverySlots(addressId || undefined);
       const info = data.data;
       setSlotInfo(info);
+      // Keep the customer's choice across refreshes while it's still offered;
+      // never pre-select — a scheduled slot is the customer's explicit choice.
       setSelectedSlot((prev) =>
-        info.slots.some((sl: any) => sl.value === prev) ? prev : (info.slots[0]?.value || ''));
+        info.slots.some((sl: any) => sl.value === prev && sl.available !== false) ? prev : '');
     } catch (e) {
-      // Ordering still works without it — the server falls back to the first slot.
-      console.warn('Failed to load delivery slots:', e);
+      console.warn('Failed to load delivery options:', e);
     }
   }, []);
+
+  // Re-estimate when the address changes, and re-check every minute so the
+  // section switches by itself at 8 PM (→ scheduled) and 9 AM (→ express).
+  useEffect(() => {
+    if (pendingOrder) return; // the order already carries its delivery
+    loadSlots(selectedAddress);
+    const timer = setInterval(() => loadSlots(selectedAddress), 60_000);
+    return () => clearInterval(timer);
+  }, [selectedAddress, loadSlots, pendingOrder]);
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
-      loadSlots();
       (async () => {
         // Refresh the cart alongside addresses rather than inside handlePay —
         // same freshness, but off the critical path between tap and payment.
@@ -104,7 +118,7 @@ export default function PaymentScreen() {
         setSelectedAddress(def ? def.id : '');
       })();
       return () => { active = false; };
-    }, [fetchCart, loadSlots])
+    }, [fetchCart])
   );
 
   const handlePay = async () => {
@@ -125,6 +139,10 @@ export default function PaymentScreen() {
     }
     if (!pendingOrder && items.length === 0) {
       appAlert('Empty Cart', 'Your cart is empty. Please add items before checking out.');
+      return;
+    }
+    if (!pendingOrder && slotInfo?.mode === 'scheduled' && !selectedSlot) {
+      appAlert('Choose a delivery time', 'Please select your preferred delivery time slot.');
       return;
     }
 
@@ -149,7 +167,9 @@ export default function PaymentScreen() {
           address_id: selectedAddress,
           payment_method: selected,
           notes: [...instructions, instructionNote.trim()].filter(Boolean).join(' • ') || undefined,
-          ...(slotInfo && selectedSlot
+          // Only scheduled orders carry a slot; the server decides the mode
+          // from its own clock and rejects (409) if it now needs one.
+          ...(slotInfo?.mode === 'scheduled' && selectedSlot && slotInfo.date
             ? { delivery_slot: selectedSlot, delivery_date: slotInfo.date }
             : {}),
         });
@@ -202,8 +222,10 @@ export default function PaymentScreen() {
       
       if (e.response?.status === 409) {
         // 8 PM cutoff passed while checking out — show the new date's slots.
-        appAlert('Delivery date changed', detail);
-        loadSlots();
+        // Delivery mode/date changed (e.g. 8 PM passed mid-checkout) or the
+        // slot filled up — show the fresh options and let them choose.
+        appAlert('Please choose a delivery time', detail);
+        loadSlots(selectedAddress);
       } else if (detail.toLowerCase().includes('cart') && detail.toLowerCase().includes('empty')) {
         appAlert('Empty Cart', 'Your cart is empty. Please add items before checking out.');
         router.back();
@@ -274,28 +296,41 @@ export default function PaymentScreen() {
           </View>
         </View>
 
-        {/* Delivery Slot */}
-        {slotInfo && (
+        {/* Delivery: express (9 AM–8 PM) or scheduled (otherwise) */}
+        {slotInfo?.mode === 'normal' && (
+          <View style={styles.slotCard}>
+            <View style={styles.slotHeader}>
+              <Zap size={16} color={Colors.primary} />
+              <Text style={styles.slotTitle}>Express Delivery</Text>
+            </View>
+            <Text style={styles.expressEta}>{slotInfo.estimate_label}</Text>
+          </View>
+        )}
+        {slotInfo?.mode === 'scheduled' && (
           <View style={styles.slotCard}>
             <View style={styles.slotHeader}>
               <Clock size={16} color={Colors.primary} />
-              <Text style={styles.slotTitle}>Delivery: {slotInfo.date_label}</Text>
+              <Text style={styles.slotTitle}>Scheduled Delivery</Text>
             </View>
-            <Text style={styles.slotHint}>
-              Orders placed before 8:00 PM are delivered tomorrow; after 8:00 PM, the day after tomorrow.
-            </Text>
+            <Text style={styles.scheduledDate}>{slotInfo.date_label}</Text>
+            <Text style={styles.slotHint}>Choose your preferred delivery time.</Text>
             <View style={styles.slotGrid}>
               {slotInfo.slots.map((sl) => {
                 const active = sl.value === selectedSlot;
+                const full = sl.available === false;
                 return (
                   <Pressable
                     key={sl.value}
-                    style={[styles.slotChip, active && styles.slotChipActive, !!pendingOrder && !active && { opacity: 0.4 }]}
-                    // The slot is saved on the order when it's created.
-                    disabled={!!pendingOrder}
+                    style={[
+                      styles.slotChip, active && styles.slotChipActive,
+                      (full || (!!pendingOrder && !active)) && { opacity: 0.4 },
+                    ]}
+                    // The slot is saved on the order when it's created; full slots can't be booked.
+                    disabled={!!pendingOrder || full}
                     onPress={() => setSelectedSlot(sl.value)}
                   >
                     <Text style={[styles.slotChipText, active && styles.slotChipTextActive]}>{sl.label}</Text>
+                    {full ? <Text style={styles.slotFull}>Full</Text> : null}
                   </Pressable>
                 );
               })}
@@ -438,6 +473,9 @@ const styles = StyleSheet.create({
   },
   slotHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   slotTitle: { fontSize: 15, fontWeight: '700', color: Colors.onSurfaceDeep },
+  expressEta: { fontSize: 14, fontWeight: '700', color: Colors.primary, marginTop: 6 },
+  scheduledDate: { fontSize: 14, fontWeight: '700', color: Colors.primary, marginTop: 6 },
+  slotFull: { fontSize: 10, color: Colors.error, fontWeight: '700', marginTop: 1 },
   slotHint: { fontSize: 12, color: Colors.onSurfaceVariant, marginTop: 4, marginBottom: Spacing.sm },
   slotGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   slotChip: {

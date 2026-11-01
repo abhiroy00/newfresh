@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { MapPin, Smartphone, CreditCard, Banknote, Check, Plus, Clock } from 'lucide-react'
+import { MapPin, Smartphone, CreditCard, Banknote, Check, Plus, Clock, Zap } from 'lucide-react'
 import { usersApi, ordersApi } from '@/api/endpoints'
 import { useCartStore } from '@/store/cartStore'
 import { useAuthStore } from '@/store/authStore'
@@ -39,19 +39,27 @@ export default function Checkout() {
     enabled: isAuthenticated,
   })
 
-  // Delivery schedule comes from the backend, which owns the 8 PM cutoff rule.
+  // Delivery mode comes from the backend (services/delivery_slots.py): 9 AM–8 PM
+  // IST → express with a location-based estimate, otherwise scheduled with a
+  // mandatory slot. Order creation re-checks the same rule on the server clock.
   const [selectedSlot, setSelectedSlot] = useState('')
   const { data: slotInfo, refetch: refetchSlots } = useQuery({
-    queryKey: ['delivery-slots'],
-    queryFn: async () => (await ordersApi.deliverySlots()).data.data as {
-      date: string; date_label: string; slots: { value: string; label: string }[]
+    // Keyed by address so changing it recalculates the estimate.
+    queryKey: ['delivery-slots', selectedAddressId],
+    queryFn: async () => (await ordersApi.deliverySlots(selectedAddressId || undefined)).data.data as {
+      mode: 'normal' | 'scheduled'
+      estimate_label?: string
+      date: string | null
+      date_label: string | null
+      slots: { value: string; label: string; available?: boolean }[]
     },
     enabled: isAuthenticated,
-    refetchInterval: 5 * 60_000, // pick up the 8 PM date change on an open tab
+    refetchInterval: 60_000, // switch modes by itself at 8 PM / 9 AM on an open tab
   })
   useEffect(() => {
-    if (slotInfo && !slotInfo.slots.some((sl) => sl.value === selectedSlot)) {
-      setSelectedSlot(slotInfo.slots[0]?.value || '')
+    // Keep the choice while it's still offered; never pre-select a slot.
+    if (slotInfo && selectedSlot && !slotInfo.slots.some((sl) => sl.value === selectedSlot && sl.available !== false)) {
+      setSelectedSlot('')
     }
   }, [slotInfo, selectedSlot])
 
@@ -95,6 +103,10 @@ export default function Checkout() {
       toast.error('Please select a delivery address')
       return
     }
+    if (!pendingOrderId && slotInfo?.mode === 'scheduled' && !selectedSlot) {
+      toast.error('Please choose your preferred delivery time')
+      return
+    }
     setPlacing(true)
     try {
       let orderId = pendingOrderId
@@ -102,7 +114,10 @@ export default function Checkout() {
         const { data: orderRes } = await ordersApi.create({
           address_id: selectedAddressId,
           payment_method: selectedMethod.toLowerCase(),
-          ...(slotInfo && selectedSlot ? { delivery_slot: selectedSlot, delivery_date: slotInfo.date } : {}),
+          // Only scheduled orders carry a slot; the server decides the mode itself.
+          ...(slotInfo?.mode === 'scheduled' && selectedSlot && slotInfo.date
+            ? { delivery_slot: selectedSlot, delivery_date: slotInfo.date }
+            : {}),
         })
         orderId = orderRes.data.id as string
         setPendingOrderId(orderId)
@@ -185,23 +200,32 @@ export default function Checkout() {
           </section>
 
           {/* Payment methods */}
-          {slotInfo && (
+          {/* Delivery: express (9 AM–8 PM) or scheduled (otherwise) */}
+          {slotInfo?.mode === 'normal' && (
+            <section className="card p-4">
+              <h2 className="font-bold text-on-surface-deep flex items-center gap-2">
+                <Zap size={16} className="text-primary" /> Express Delivery
+              </h2>
+              <p className="text-sm font-semibold text-primary mt-1">{slotInfo.estimate_label}</p>
+            </section>
+          )}
+          {slotInfo?.mode === 'scheduled' && (
             <section>
               <h2 className="font-bold text-on-surface-deep mb-1 flex items-center gap-2">
-                <Clock size={16} className="text-primary" /> Delivery: {slotInfo.date_label}
+                <Clock size={16} className="text-primary" /> Scheduled Delivery
               </h2>
-              <p className="text-xs text-on-surface-variant mb-3">
-                Orders placed before 8:00 PM are delivered tomorrow; after 8:00 PM, the day after tomorrow.
-              </p>
+              <p className="text-sm font-semibold text-primary">{slotInfo.date_label}</p>
+              <p className="text-xs text-on-surface-variant mb-3">Choose your preferred delivery time.</p>
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                 {slotInfo.slots.map((sl) => {
                   const active = sl.value === selectedSlot
+                  const full = sl.available === false
                   return (
                     <button
                       key={sl.value}
                       type="button"
-                      // The slot is saved on the order when it's created.
-                      disabled={!!pendingOrderId}
+                      // The slot is saved on the order when it's created; full slots can't be booked.
+                      disabled={!!pendingOrderId || full}
                       onClick={() => setSelectedSlot(sl.value)}
                       className={`py-2.5 rounded-xl border-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed ${
                         active
@@ -210,6 +234,7 @@ export default function Checkout() {
                       }`}
                     >
                       {sl.label}
+                      {full && <span className="block text-[10px] text-error">Full</span>}
                     </button>
                   )
                 })}

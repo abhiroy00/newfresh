@@ -39,7 +39,8 @@ class UnavailableCartItemTests(unittest.IsolatedAsyncioTestCase):
         self.db.execute.return_value.scalar_one_or_none.return_value = SimpleNamespace(id="addr")
         payload = SimpleNamespace(address_id="addr", payment_method="cod", notes=None,
                                   delivery_slot=None, delivery_date=None)
-        with patch.object(order_service, "get_or_create_cart", AsyncMock(return_value=cart)):
+        # Delivery mode depends on the clock; it isn't what this test is about.
+        with patch.object(order_service, "get_or_create_cart", AsyncMock(return_value=cart)),              patch.object(order_service, "resolve_delivery", AsyncMock(return_value={})):
             with self.assertRaises(HTTPException) as error:
                 await order_service.create_order("u", payload, self.db)
         self.assertEqual(error.exception.status_code, 400)

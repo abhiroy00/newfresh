@@ -154,7 +154,7 @@ export default function TrackScreen() {
             <View style={styles.etaRow}>
               <Clock size={14} color={Colors.primary} />
               <Text style={styles.etaText}>
-                Scheduled delivery: <Text style={styles.etaBold}>{eta}</Text>
+                {order.delivery_type === 'normal' ? 'Express delivery by' : 'Scheduled delivery'}: <Text style={styles.etaBold}>{eta}</Text>
               </Text>
             </View>
           )}

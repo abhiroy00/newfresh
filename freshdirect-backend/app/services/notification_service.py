@@ -103,14 +103,20 @@ def _fmt_delivery(iso: str | None) -> str | None:
 
 def order_message(event: str, order_number: str, *, total: float | None = None,
                   delivery_at: str | None = None, rider_name: str | None = None,
-                  rider_phone: str | None = None, otp: str | None = None, **_) -> tuple[str, str]:
+                  rider_phone: str | None = None, otp: str | None = None,
+                  delivery_type: str | None = None, estimate_minutes: int | None = None,
+                  **_) -> tuple[str, str]:
     """Title/body for an order lifecycle push. Pure, so it's unit-testable."""
     slot = _fmt_delivery(delivery_at)
     amount = f" (₹{total:g})" if total is not None else ""
     if event == "placed":
         body = f"Your order #{order_number}{amount} has been placed successfully."
-        if slot:
-            body += f" Delivery: {slot}."
+        if delivery_type == "normal" and estimate_minutes:
+            from app.core.config import settings
+            lo = max(10, estimate_minutes - settings.DELIVERY_ESTIMATE_SPREAD_MINUTES)
+            body += f" Estimated delivery in {lo}–{estimate_minutes} minutes."
+        elif slot:
+            body += f" Scheduled delivery: {slot}."
         return "Order placed 🎉", body
     if event == "arriving":
         who = rider_name or "Our delivery partner"
@@ -154,6 +160,8 @@ def queue_order_event(event: str, order, **extra) -> None:
             "order_id": order.id,
             "total": order.total,
             "delivery_at": order.estimated_delivery_at.isoformat() if order.estimated_delivery_at else None,
+            "delivery_type": getattr(order, "delivery_type", None),
+            "estimate_minutes": getattr(order, "estimated_delivery_minutes", None),
             **extra,
         }
         args = [order.user_id, order.order_number, event, payload]

@@ -79,6 +79,18 @@ class Settings(BaseSettings):
     FREE_DELIVERY_THRESHOLD: float = 499.0
     DELIVERY_FEE: float = 49.0
 
+    # Delivery scheduling (business time is Asia/Kolkata — see delivery_slots.py).
+    # Express window: OPEN_HOUR ≤ now < CUTOFF_HOUR; otherwise scheduled.
+    DELIVERY_OPEN_HOUR: int = 9
+    DELIVERY_CUTOFF_HOUR: int = 20
+    # Hourly scheduled slots, inclusive: 9 → 9:00 AM … 20 → 8:00 PM.
+    DELIVERY_SLOT_START_HOUR: int = 9
+    DELIVERY_SLOT_END_HOUR: int = 20
+    DELIVERY_SLOT_CAPACITY: int = 25  # max scheduled orders per slot
+    # Express estimate when no delivery zone matches the address.
+    DEFAULT_DELIVERY_MINUTES: int = 45
+    DELIVERY_ESTIMATE_SPREAD_MINUTES: int = 10  # shown as "35–45 minutes"
+
     @model_validator(mode="after")
     def _parse_cloudinary_url(self) -> "Settings":
         """Parse CLOUDINARY_URL into individual components if the separate vars aren't set."""

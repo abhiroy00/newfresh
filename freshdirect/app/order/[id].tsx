@@ -217,7 +217,7 @@ export default function OrderDetailScreen() {
             <View style={styles.slotRow}>
               <Clock size={14} color={Colors.primary} />
               <Text style={styles.slotText}>
-                Scheduled delivery: <Text style={styles.slotBold}>{formatDeliveryTime(order.estimated_delivery_at)}</Text>
+                {order.delivery_type === 'normal' ? 'Express delivery by' : 'Scheduled delivery'}: <Text style={styles.slotBold}>{formatDeliveryTime(order.estimated_delivery_at)}</Text>
               </Text>
             </View>
           )}

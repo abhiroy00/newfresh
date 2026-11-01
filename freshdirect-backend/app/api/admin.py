@@ -170,6 +170,7 @@ async def admin_list_orders(
             "id": o.id, "order_number": o.order_number, "status": o.status.value if hasattr(o.status, 'value') else o.status,
             "total": o.total, "created_at": o.created_at.isoformat() if o.created_at else None,
             "estimated_delivery_at": o.estimated_delivery_at.isoformat() if o.estimated_delivery_at else None,
+            "delivery_type": o.delivery_type,
             "rating": o.rating,
             "items": [{"id": i.id, "product_name": i.product_name, "quantity": i.quantity} for i in o.items],
             "user": {"name": o.user.name, "email": o.user.email, "phone": o.user.phone} if o.user else None,
@@ -199,6 +200,9 @@ async def admin_get_order(order_id: str, db: AsyncSession = Depends(get_db), _: 
         "total": o.total, "subtotal": o.subtotal, "delivery_fee": o.delivery_fee,
         "created_at": o.created_at.isoformat() if o.created_at else None,
         "estimated_delivery_at": o.estimated_delivery_at.isoformat() if o.estimated_delivery_at else None,
+        "delivery_type": o.delivery_type,
+        "estimated_delivery_minutes": o.estimated_delivery_minutes,
+        "scheduled_delivery_slot": o.scheduled_delivery_slot,
         "rider_id": o.rider_id,
         "notes": o.notes,  # customer's delivery instructions
         # Admin/support can read it out to a rider whose customer can't.

@@ -86,7 +86,7 @@ export default function OrderSuccessScreen() {
             <>
               <View style={styles.orderCardDivider} />
               <View style={styles.etaRow}>
-                <Text style={styles.etaLabel}>Scheduled Delivery</Text>
+                <Text style={styles.etaLabel}>{order?.delivery_type === 'normal' ? 'Express Delivery by' : 'Scheduled Delivery'}</Text>
                 <Text style={styles.etaTime}>{eta}</Text>
               </View>
             </>

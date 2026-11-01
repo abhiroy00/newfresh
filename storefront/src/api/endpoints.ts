@@ -49,7 +49,9 @@ export const ordersApi = {
     address_id: string; payment_method?: string; notes?: string
     delivery_slot?: string; delivery_date?: string
   }) => api.post('/orders', payload),
-  deliverySlots: () => api.get('/orders/delivery-slots'),
+  // Express estimate for this address, or the scheduled date + slots.
+  deliverySlots: (addressId?: string) =>
+    api.get('/orders/delivery-slots', { params: addressId ? { address_id: addressId } : undefined }),
   cancel: (id: string, reason?: string) => api.post(`/orders/${id}/cancel`, { reason }),
 }
 

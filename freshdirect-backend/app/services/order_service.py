@@ -14,7 +14,7 @@ from app.models.product import Product
 from app.schemas.order import OrderCreate
 from app.services.cart_service import get_or_create_cart, clear_cart, _purge_unavailable, add_item
 from app.core.config import settings
-from app.services.delivery_slots import resolve_slot
+from app.services.delivery_slots import resolve_delivery
 
 
 ACTIVE_STATUSES = (OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.PACKING, OrderStatus.OUT_FOR_DELIVERY)
@@ -83,9 +83,12 @@ async def create_order(user_id: str, payload: OrderCreate, db: AsyncSession) -> 
     if not address:
         raise HTTPException(status_code=404, detail="Address not found")
 
-    # Resolve the delivery slot first: an invalid slot or a passed cutoff
-    # should fail before anything in the cart is touched.
-    estimated_delivery_at = resolve_slot(payload.delivery_slot, payload.delivery_date)
+    # Decide the delivery mode on the server clock (express vs scheduled) and
+    # validate any slot before anything in the cart is touched. The client's
+    # view of the mode is never trusted.
+    delivery = await resolve_delivery(
+        db, address=address, slot=payload.delivery_slot, requested_date=payload.delivery_date,
+    )
 
     # Get cart
     cart = await get_or_create_cart(user_id, db)
@@ -163,7 +166,7 @@ async def create_order(user_id: str, payload: OrderCreate, db: AsyncSession) -> 
         delivery_fee=delivery_fee,
         total=total,
         notes=payload.notes,
-        estimated_delivery_at=estimated_delivery_at,
+        **delivery,
         # Customer reads this to the rider at the door (Zepto/Swiggy style).
         delivery_otp=f"{secrets.randbelow(10000):04d}",
     )

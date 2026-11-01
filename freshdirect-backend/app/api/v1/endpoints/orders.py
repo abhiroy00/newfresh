@@ -11,7 +11,8 @@ from app.services.order_service import (
     create_order, list_orders, cancel_order, rate_order, reorder,
     record_status, build_timeline, visible_delivery_otp,
 )
-from app.services.delivery_slots import available_slots
+from app.services.delivery_slots import delivery_options
+from app.models.user import Address
 from app.services.notification_service import queue_order_event, notify_status_change
 from app.models.order import PaymentMethod
 from app.models.order import Order, OrderStatus
@@ -60,6 +61,10 @@ async def api_create_order(payload: OrderCreate, current_user: User = Depends(ge
             "notes": order_loaded.notes,
             "razorpay_order_id": order_loaded.razorpay_order_id,
             "delivery_otp": visible_delivery_otp(order_loaded),
+            "delivery_type": order_loaded.delivery_type,
+            "estimated_delivery_minutes": order_loaded.estimated_delivery_minutes,
+            "scheduled_delivery_date": order_loaded.scheduled_delivery_date.isoformat() if order_loaded.scheduled_delivery_date else None,
+            "scheduled_delivery_slot": order_loaded.scheduled_delivery_slot,
             "estimated_delivery_at": order_loaded.estimated_delivery_at.isoformat() if order_loaded.estimated_delivery_at else None,
             "delivered_at": order_loaded.delivered_at.isoformat() if order_loaded.delivered_at else None,
             "cancelled_at": order_loaded.cancelled_at.isoformat() if order_loaded.cancelled_at else None,
@@ -83,8 +88,19 @@ async def api_create_order(payload: OrderCreate, current_user: User = Depends(ge
 
 # Declared before "/{order_id}" so the path isn't captured as an order id.
 @router.get("/delivery-slots")
-async def api_delivery_slots(_: User = Depends(get_current_user)):
-    return {"success": True, "data": available_slots()}
+async def api_delivery_slots(
+    address_id: str | None = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """What checkout should show now: express estimate (for this address) or
+    the scheduled date + slots. Same rule order creation enforces."""
+    address = None
+    if address_id:
+        address = (await db.execute(
+            select(Address).where(Address.id == address_id, Address.user_id == current_user.id)
+        )).scalar_one_or_none()
+    return {"success": True, "data": await delivery_options(db, address=address)}
 
 @router.get("")
 async def api_list_orders(page: int = Query(1, ge=1), per_page: int = Query(10, ge=1, le=50), current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
@@ -138,6 +154,10 @@ async def api_get_order(order_id: str, current_user: User = Depends(get_current_
             "rider": rider,
             # Shown while on its way; the rider needs it to mark delivered.
             "delivery_otp": visible_delivery_otp(order),
+            "delivery_type": order.delivery_type,
+            "estimated_delivery_minutes": order.estimated_delivery_minutes,
+            "scheduled_delivery_date": order.scheduled_delivery_date.isoformat() if order.scheduled_delivery_date else None,
+            "scheduled_delivery_slot": order.scheduled_delivery_slot,
             "timeline": build_timeline(order),
             "rating": order.rating,
             "rating_comment": order.rating_comment,
