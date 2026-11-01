@@ -290,7 +290,7 @@ async def admin_get_user(user_id: str, db: AsyncSession = Depends(get_db), _: Us
         "id": u.id, "user_code": u.user_code, "name": u.name, "email": u.email, "phone": u.phone,
         "is_admin": u.is_admin, "orders_count": order_count,
         "family_members": [
-            {"id": m.id, "name": m.name, "age": m.age, "weight_kg": m.weight_kg, "gender": m.gender} for m in family_members
+            {"id": m.id, "name": m.name, "age": m.age, "weight_kg": m.weight_kg, "gender": m.gender, "relationship": m.relationship} for m in family_members
         ],
         "created_at": u.created_at.isoformat() if u.created_at else None,
     }

@@ -9,9 +9,16 @@ export type FamilyMember = {
   age: number;
   weight_kg: number;
   gender?: Gender | null;
+  relationship?: string | null;
 };
 
-export type FamilyMemberValues = { name?: string; age: number; weight_kg: number; gender?: Gender };
+export type FamilyMemberValues = {
+  name?: string; age: number; weight_kg: number; gender?: Gender; relationship?: string;
+};
+
+export const RELATIONSHIP_OPTIONS = [
+  'Spouse', 'Father', 'Mother', 'Son', 'Daughter', 'Brother', 'Sister', 'Grandparent', 'Other',
+];
 
 export const GENDER_OPTIONS: { value: Gender; label: string }[] = [
   { value: 'male', label: 'Male' },
@@ -39,6 +46,7 @@ export default function FamilyMemberForm({
   const [age, setAge] = React.useState(initial ? String(initial.age) : '');
   const [weight, setWeight] = React.useState(initial ? String(initial.weight_kg) : '');
   const [gender, setGender] = React.useState<Gender | null>(initial?.gender ?? null);
+  const [relationship, setRelationship] = React.useState<string | null>(initial?.relationship ?? null);
 
   const ageNum = Number(age);
   const weightNum = Number(weight);
@@ -49,7 +57,10 @@ export default function FamilyMemberForm({
 
   const submit = () => {
     if (!valid || saving) return;
-    onSubmit({ name: name.trim() || undefined, age: ageNum, weight_kg: weightNum, gender: gender ?? undefined });
+    onSubmit({
+      name: name.trim() || undefined, age: ageNum, weight_kg: weightNum,
+      gender: gender ?? undefined, relationship: relationship ?? undefined,
+    });
   };
 
   return (
@@ -64,6 +75,24 @@ export default function FamilyMemberForm({
           onChangeText={setName}
           autoCapitalize="words"
         />
+      </View>
+      <View>
+        <Text style={styles.label}>Relationship (optional)</Text>
+        <View style={styles.wrapRow}>
+          {RELATIONSHIP_OPTIONS.map((opt) => {
+            const active = relationship === opt;
+            return (
+              <Pressable
+                key={opt}
+                style={[styles.relChip, active && styles.chipActive]}
+                // Tap the selected one again to clear it.
+                onPress={() => setRelationship(active ? null : opt)}
+              >
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>{opt}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
       <View style={styles.row}>
         {/* Labels + unit suffixes stay visible after typing — placeholders alone vanish. */}
@@ -148,6 +177,12 @@ const styles = StyleSheet.create({
   unit: { fontSize: 14, fontWeight: '700', color: Colors.onSurfaceVariant, marginLeft: 4 },
   chip: {
     flex: 1, alignItems: 'center', paddingVertical: 9,
+    borderRadius: BorderRadius.full, borderWidth: 1.5, borderColor: Colors.outlineVariant,
+    backgroundColor: Colors.surfaceContainerLow,
+  },
+  wrapRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  relChip: {
+    paddingHorizontal: 14, paddingVertical: 8,
     borderRadius: BorderRadius.full, borderWidth: 1.5, borderColor: Colors.outlineVariant,
     backgroundColor: Colors.surfaceContainerLow,
   },

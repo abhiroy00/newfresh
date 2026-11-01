@@ -38,8 +38,10 @@ export default function FamilyMemberDetailScreen() {
   const save = async (values: FamilyMemberValues) => {
     setSaving(true);
     try {
-      // Empty name → null: PATCH only changes the keys it receives.
-      const { data } = await familyMembersApi.update(String(id), { ...values, name: values.name ?? null });
+      // Cleared optional fields → null: PATCH only changes the keys it receives.
+      const { data } = await familyMembersApi.update(String(id), {
+        ...values, name: values.name ?? null, relationship: values.relationship ?? null,
+      });
       setMember(data.data);
       setEditing(false);
       showMessage({ message: 'Details updated', type: 'success' });
@@ -111,6 +113,7 @@ export default function FamilyMemberDetailScreen() {
 
   const rows: { label: string; value: string }[] = [
     { label: 'Full Name', value: member.name || 'Not added' },
+    { label: 'Relationship', value: member.relationship || 'Not added' },
     { label: 'Age', value: `${member.age} years` },
     { label: 'Gender', value: genderLabel(member.gender) || 'Not added' },
     { label: 'Weight', value: `${member.weight_kg} kg` },
@@ -128,6 +131,7 @@ export default function FamilyMemberDetailScreen() {
             <Text style={styles.avatarText}>{(member.name || 'F').charAt(0).toUpperCase()}</Text>
           </View>
           <Text style={styles.heroName}>{member.name || 'Family member'}</Text>
+          {member.relationship ? <Text style={styles.heroRelationship}>{member.relationship}</Text> : null}
         </View>
 
         {editing ? (
@@ -201,6 +205,7 @@ const styles = StyleSheet.create({
   },
   avatarText: { fontSize: 30, fontWeight: '800', color: Colors.onPrimaryContainer },
   heroName: { fontSize: 19, fontWeight: '800', color: Colors.onSurfaceDeep },
+  heroRelationship: { fontSize: 13, fontWeight: '600', color: Colors.primary, marginTop: -4 },
   card: {
     backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.xl,
     paddingHorizontal: Spacing.md, ...Shadows.card,

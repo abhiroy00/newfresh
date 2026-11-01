@@ -123,5 +123,9 @@ class FamilyMember(Base):
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="family_members")
 
+    # To the account holder ("Mother", "Son", ...). Declared after `user`: this
+    # attribute shadows SQLAlchemy's relationship() inside the class body.
+    relationship: Mapped[str | None] = mapped_column(String(30), nullable=True)
+
     def __repr__(self) -> str:
         return f"<FamilyMember id={self.id} user_id={self.user_id} age={self.age}>"

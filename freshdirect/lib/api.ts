@@ -119,9 +119,9 @@ export type Gender = 'male' | 'female' | 'other';
 export const familyMembersApi = {
   list: () => api.get('/users/family-members'),
   get: (id: string) => api.get(`/users/family-members/${id}`),
-  create: (data: { name?: string; age: number; weight_kg: number; gender?: Gender }) =>
+  create: (data: { name?: string; age: number; weight_kg: number; gender?: Gender; relationship?: string }) =>
     api.post('/users/family-members', data),
-  update: (id: string, data: { name?: string | null; age?: number; weight_kg?: number; gender?: Gender }) =>
+  update: (id: string, data: { name?: string | null; age?: number; weight_kg?: number; gender?: Gender; relationship?: string | null }) =>
     api.patch(`/users/family-members/${id}`, data),
   remove: (id: string) => api.delete(`/users/family-members/${id}`),
 };

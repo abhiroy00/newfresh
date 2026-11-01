@@ -74,7 +74,7 @@ export default function FamilyListScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.name}>{m.name || 'Family member'}</Text>
               <Text style={styles.detail}>
-                {[genderLabel(m.gender), `Age ${m.age} yrs`, `Weight ${m.weight_kg} kg`].filter(Boolean).join(' • ')}
+                {[m.relationship, genderLabel(m.gender), `Age ${m.age} yrs`, `Weight ${m.weight_kg} kg`].filter(Boolean).join(' • ')}
               </Text>
             </View>
             <ChevronRight size={18} color={Colors.outline} />

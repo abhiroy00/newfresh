@@ -78,6 +78,7 @@ class FamilyMemberCreate(BaseModel):
     age: int = Field(ge=0, le=120)
     weight_kg: float = Field(gt=0, le=300)
     gender: Optional[Gender] = None
+    relationship: Optional[str] = Field(default=None, max_length=30)
 
 
 class FamilyMemberUpdate(BaseModel):
@@ -85,6 +86,7 @@ class FamilyMemberUpdate(BaseModel):
     age: Optional[int] = Field(default=None, ge=0, le=120)
     weight_kg: Optional[float] = Field(default=None, gt=0, le=300)
     gender: Optional[Gender] = None
+    relationship: Optional[str] = Field(default=None, max_length=30)
 
 
 class FamilyMemberOut(BaseModel):
@@ -93,5 +95,6 @@ class FamilyMemberOut(BaseModel):
     age: int
     weight_kg: float
     gender: Optional[str] = None
+    relationship: Optional[str] = None
 
     model_config = {"from_attributes": True}

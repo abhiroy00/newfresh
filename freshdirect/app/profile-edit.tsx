@@ -193,7 +193,7 @@ export default function ProfileEditScreen() {
             <View style={{ flex: 1 }}>
               {!!m.name && <Text style={styles.memberName}>{m.name}</Text>}
               <Text style={styles.memberDetail}>
-                {[genderLabel(m.gender), `Age ${m.age} yrs`, `Weight ${m.weight_kg} kg`].filter(Boolean).join(' • ')}
+                {[m.relationship, genderLabel(m.gender), `Age ${m.age} yrs`, `Weight ${m.weight_kg} kg`].filter(Boolean).join(' • ')}
               </Text>
             </View>
             <Pressable

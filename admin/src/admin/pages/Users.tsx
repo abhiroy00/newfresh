@@ -116,7 +116,7 @@ export default function Users() {
                           <div className="flex flex-wrap gap-2">
                             {(expandedUser?.family_members ?? []).map((m: any) => (
                               <span key={m.id} className="text-xs bg-white border rounded-full px-3 py-1 text-gray-600">
-                                {m.name ? `${m.name} — ` : ''}{m.gender ? `${m.gender.charAt(0).toUpperCase()}${m.gender.slice(1)} • ` : ''}Age {m.age} • {m.weight_kg} kg
+                                {m.name ? `${m.name} — ` : ''}{m.relationship ? `${m.relationship} • ` : ''}{m.gender ? `${m.gender.charAt(0).toUpperCase()}${m.gender.slice(1)} • ` : ''}Age {m.age} • {m.weight_kg} kg
                               </span>
                             ))}
                           </div>
