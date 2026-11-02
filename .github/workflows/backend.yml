@@ -123,8 +123,10 @@ jobs:
             sudo docker builder prune -f --keep-storage 2GB || sudo docker builder prune -af
 
             sudo docker compose -f docker-compose.prod.yml build
+            # Migrate BEFORE restarting: new code selects the new columns, so
+            # the other way round every request fails until the migration runs.
+            # Migrations must stay additive so the old code keeps working meanwhile.
+            sudo docker compose -f docker-compose.prod.yml run --rm --no-deps api alembic upgrade head
             sudo docker compose -f docker-compose.prod.yml up -d --remove-orphans
-            sleep 15
-            sudo docker compose -f docker-compose.prod.yml exec -T api alembic upgrade head
             sudo docker image prune -af
             echo "Deploy complete"

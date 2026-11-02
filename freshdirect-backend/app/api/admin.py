@@ -159,7 +159,11 @@ async def admin_list_orders(
 ):
     query = select(Order).options(selectinload(Order.items), selectinload(Order.user))
     if status:
-        query = query.where(Order.status == status)
+        # An unknown value would otherwise reach Postgres's enum and return a 500.
+        try:
+            query = query.where(Order.status == OrderStatus(status))
+        except ValueError:
+            raise HTTPException(400, f"Invalid status: {status}")
     count_q = select(func.count()).select_from(query.subquery())
     total = (await db.execute(count_q)).scalar()
     query = query.order_by(Order.created_at.desc()).offset((page - 1) * per_page).limit(per_page)

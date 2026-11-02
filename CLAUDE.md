@@ -88,7 +88,7 @@ External: Razorpay (payments + webhook), Twilio Verify (SMS OTP), Cloudinary (im
 
 | Workflow | Trigger | Does |
 |---|---|---|
-| `backend.yml` | `freshdirect-backend/**` | ruff (`E,W,F`, ignore `E501,F821`) → rsync to `~/app/freshdirect-backend` (excludes `.env`) → prune images → `docker compose -f docker-compose.prod.yml build && up -d --remove-orphans` → `alembic upgrade head`. Also patches `.env` CORS to include `shop.gmartfresh.com`. SSH script `command_timeout: 30m`: cold rebuilds (build cache is pruned each deploy) take ~6 to 10+ min, and the 10 min default killed the `99acab3` deploy. |
+| `backend.yml` | `freshdirect-backend/**` | ruff (`E,W,F`, ignore `E501,F821`) → rsync to `~/app/freshdirect-backend` (excludes `.env`) → prune images → `docker compose -f docker-compose.prod.yml build` → `run --rm --no-deps api alembic upgrade head` → `up -d --remove-orphans`. **Migrations run before the restart**, so they must stay additive (the old code keeps running on the new schema for a moment). Also patches `.env` CORS to include `shop.gmartfresh.com`. SSH script `command_timeout: 30m`: cold rebuilds (build cache is pruned each deploy) take ~6 to 10+ min, and the 10 min default killed the `99acab3` deploy. |
 | `admin.yml` | `admin/**` | `tsc --noEmit` → build with `VITE_API_BASE_URL=https://api.gmartfresh.com/api/v1` → tar over SSH to `/var/www/admin` → reload nginx |
 | `storefront.yml` | `storefront/**` | `tsc -b` → build → writes nginx vhost for shop.gmartfresh.com → deploy `/var/www/shop` |
 | `mobile.yml` | `freshdirect/**` | `tsc --noEmit` → OTA `eas update` to preview + production on push (plus a runtime-1.0.0 copy); EAS builds only on manual dispatch |
@@ -180,6 +180,8 @@ Ordered by severity. Verify each one before fixing.
 ## 8. Change log (newest first)
 
 Add one line per change: date, short description, files touched.
+
+- 2026-11-02: **Dummy-data test of everything, then deployed.** Local stack: real Postgres 16 + Redis (throwaway containers), API, Celery worker + beat, Expo push captured. All migrations ran from empty and from production's schema with data. API test 203/203 (incl. 40 simultaneous bookings on a 25-capacity slot → exactly 25, beat sending "arriving soon" once). Chrome test 87/87 through the app's web build, website, admin and rider portal. Native Android itself wasn't run. Found and fixed: `GET /admin/orders?status=<unknown>` returned a 500 (now 400); `backend.yml` restarted the API before migrating, which would fail every logged-in request until the migration ran (now migrates first). Test scripts weren't committed (they lived in the session scratchpad).
 
 - 2026-11-02 (**local only, not pushed**): **Family member relationship.** New optional `family_members.relationship` (String 30; migration `add_family_member_relationship`). In the model it is declared after `user` because the attribute shadows SQLAlchemy's `relationship()` in the class body. Form chips (Spouse, Father, Mother, Son, Daughter, Brother, Sister, Grandparent, Other; tap again to clear) in `components/FamilyMemberForm.tsx`; shown in `app/family/index.tsx`, `app/family/[id].tsx`, `app/profile-edit.tsx`, admin `Users.tsx`. API accepts any string up to 30 characters; the chip list lives in the app.
 
