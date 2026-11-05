@@ -10,6 +10,7 @@ dist/
 .git/
 .github/
 .venv/
+.uv-cache/
 venv/
 node_modules/
 tests/

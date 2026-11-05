@@ -8,6 +8,13 @@
 
 Last full codebase review: 2026-10-27.
 
+2026-11-05 CI/CD follow-up: backend deployments now require the backend test suite,
+support manual dispatch on main, and serialize runs. Added read-only
+`scripts/check_runtime.py` to verify database, Redis, responding Celery workers
+and notification task registration after restart. This does not prove device
+delivery or beat execution. GitHub authentication and production DNS/server access
+are still required to finish live verification.
+
 ---
 
 ## 1. What this is
